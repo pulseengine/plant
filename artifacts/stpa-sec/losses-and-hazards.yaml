@@ -1,0 +1,76 @@
+# STPA-Sec seed for plant (draft, 2026-11-14). Shares the control structure
+# with artifacts/stpa once that is drawn.
+artifacts:
+  - id: SL-1
+    type: sec-loss
+    title: Compromise of a self-hosted runner host
+    status: draft
+    description: >
+      Untrusted code executes on a self-hosted runner and gains persistence,
+      network position or access to other repositories' workspaces.
+    fields:
+      cia-impact: [integrity, confidentiality, availability]
+      stakeholders: [org-infrastructure]
+
+  - id: SL-2
+    type: sec-loss
+    title: Disclosure of repository secrets
+    status: draft
+    fields:
+      cia-impact: [confidentiality]
+      stakeholders: [maintainers, org-infrastructure]
+
+  - id: SH-1
+    type: sec-hazard
+    title: Fork code reaches a self-hosted runner
+    status: draft
+    description: >
+      A pull request from a fork runs plant (and with it the manifest's run
+      commands and planted inputs) on a self-hosted runner, or with secrets via
+      pull_request_target.
+    fields:
+      cia-impact: [integrity, confidentiality]
+      severity: critical
+    links:
+      - type: leads-to-sec-loss
+        target: SL-1
+      - type: leads-to-sec-loss
+        target: SL-2
+
+  - id: SH-2
+    type: sec-hazard
+    title: plant executes a command that was not reviewed
+    status: draft
+    description: >
+      plant runs a shell command taken from somewhere other than the
+      repository's reviewed ci-controls.toml (issue or PR text, action inputs),
+      or a plant or delete path writes outside the scratch root.
+    fields:
+      cia-impact: [integrity]
+      severity: high
+    links:
+      - type: leads-to-sec-loss
+        target: SL-1
+
+  - id: SSC-1
+    type: sec-constraint
+    title: Self-hosted jobs use the fail-closed fork guard
+    status: draft
+    description: >
+      Every self-hosted job in plant's CI and in the documented action usage
+      shall route fork pull requests to ubuntu-latest, and no self-hosted job
+      shall run under pull_request_target.
+    links:
+      - type: prevents-sec-hazard
+        target: SH-1
+
+  - id: SSC-2
+    type: sec-constraint
+    title: Commands come only from the committed manifest
+    status: draft
+    description: >
+      plant shall take run commands only from ci-controls.toml and confine
+      every plant and delete path to the scratch root.
+    links:
+      - type: prevents-sec-hazard
+        target: SH-2
