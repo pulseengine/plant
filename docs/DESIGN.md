@@ -56,6 +56,14 @@ of output for failures, a summary. `--format json`, `--only ID`.
   (e.g. an option to keep a shallow `.git`).
 - Exit 126/127 must not read as a red.
 - `baseline = false` must be reported as skipped, not silently passed.
+- A copied plant file can keep its old mtime (`std::fs::copy` on macOS), and an
+  mtime-cached build such as cargo then skips it: the check runs without the
+  plant and reads as fail-open. Found by plant's first run on itself; planted
+  files are now stamped with the current time.
+- A check's caches outside the scratch copy are outside plant's protection. A
+  shared `CARGO_TARGET_DIR` let a planted build overwrite the real
+  `target/debug/plant`, so later tests ran the mutant. Point such caches at a
+  dedicated directory, never the repository's own.
 
 ## Self-test cases (both directions)
 
