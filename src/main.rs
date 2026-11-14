@@ -72,6 +72,7 @@ fn main() -> ExitCode {
             },
         };
     }
+    runner::install_signal_handlers();
     match control::run_manifest(&cli.manifest, &cli.only) {
         Err(e) => {
             eprintln!("plant: {e}");

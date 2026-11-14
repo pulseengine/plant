@@ -56,7 +56,8 @@ planted run exits non-zero for a real reason. It FAILS when:
   - the plant directory is missing, or has no files and no deletes;
   - a plant or delete path escapes the root, goes through a symlink, or a
     delete names a path not in the scratch copy.
-A run killed by a signal counts as red, as it does in CI.
+A planted run killed by a signal is not a red either: an OOM or runner kill
+says nothing about the input. A baseline killed by a signal is red.
 baseline = false is reported as skipped, never as checked.
 ";
 
@@ -73,5 +74,12 @@ const MECHANICS: &str = "\
   edits are not under test.
 - Each run is `/bin/sh -c <run>` in its own process group. On timeout, and
   when the run ends, the whole group is killed, so children die too.
-- The scratch copy has no .git directory.
+- The scratch copy has no .git directory, and is what `git archive` gives:
+  export-ignore files are missing, export-subst files are expanded, and
+  submodules are absent.
+- Symlinks in a plant must point inside the scratch copy.
+- On SIGINT or SIGTERM plant kills the running check's process group,
+  removes its temp dir and exits 2.
+- A process that leaves the check's process group (setsid, setpgrp) is not
+  killed by plant.
 ";

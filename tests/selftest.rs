@@ -511,6 +511,123 @@ fn planted_files_are_newer_than_the_baseline() {
     assert_verdict(&r.control("fresh"), "PASS", "exited 1");
 }
 
+// An OOM or runner kill is not the check judging the input.
+// rivet: verifies REQ-001
+#[test]
+fn signal_killed_planted_run_is_fail() {
+    let f = Fixture::new("signal");
+    let run = "grep -q bad data.txt && kill -9 $$; exit 0";
+    f.manifest(
+        "m.toml",
+        &(ctl("killed", run, "plants/bad", "") + &ctl("good", DATA, "plants/bad", "")),
+    );
+    let r = f.run_json("m.toml");
+    assert_verdict(&r.control("killed"), "FAIL", "signal 9");
+    assert_verdict(&r.control("good"), "PASS", "exited 1");
+}
+
+// rivet: verifies REQ-001
+#[test]
+fn baseline_timeout_is_fail() {
+    let f = Fixture::new("basetimeout");
+    f.manifest(
+        "m.toml",
+        &(ctl("slow", "sh check.sh sleep", "plants/bad", "timeout = 1")
+            + &ctl("good", DATA, "plants/bad", "timeout = 30")),
+    );
+    let r = f.run_json("m.toml");
+    let slow = r.control("slow");
+    assert_verdict(&slow, "FAIL", "baseline timed out");
+    assert_eq!(slow["baseline"], "timeout");
+    assert_verdict(&r.control("good"), "PASS", "exited 1");
+}
+
+// rivet: verifies REQ-004
+#[test]
+fn planted_symlinks_must_stay_inside() {
+    let f = Fixture::new("plantlink");
+    let outside = f.base.join("outside");
+    fs::create_dir_all(&outside).unwrap();
+    let mk = |dir: &str, target: &Path| {
+        let d = f.repo.join("plants").join(dir);
+        fs::create_dir_all(&d).unwrap();
+        std::os::unix::fs::symlink(target, d.join("out")).unwrap();
+    };
+    mk("abs", &outside);
+    mk("rel", Path::new("../../../outside"));
+    mk("ok", Path::new("data.txt"));
+    let run = "echo x > out 2>/dev/null; echo y > out/written 2>/dev/null; \
+               grep -q bad data.txt && exit 1; [ -L out ] && exit 1; exit 0";
+    f.manifest(
+        "m.toml",
+        &(ctl("abs", run, "plants/abs", "")
+            + &ctl("rel", run, "plants/rel", "")
+            + &ctl("ok", run, "plants/ok", "")),
+    );
+    let r = f.run_json("m.toml");
+    assert_verdict(&r.control("abs"), "FAIL", "absolute");
+    assert_verdict(&r.control("rel"), "FAIL", "outside the scratch copy");
+    assert_verdict(&r.control("ok"), "PASS", "exited 1");
+    assert!(fs::read_dir(&outside).unwrap().next().is_none());
+}
+
+// rivet: verifies REQ-004
+#[test]
+fn read_only_dirs_from_a_check_are_cleaned() {
+    let f = Fixture::new("readonly");
+    let run = "mkdir -p ro && touch ro/f && chmod 555 ro; sh check.sh data";
+    f.manifest("m.toml", &ctl("ro", run, "plants/bad", ""));
+    // Fixture::run asserts TMPDIR is empty afterwards.
+    let r = f.run_json("m.toml");
+    assert_verdict(&r.control("ro"), "PASS", "exited 1");
+}
+
+// rivet: verifies REQ-005
+#[test]
+fn sigterm_kills_the_check_and_cleans_up() {
+    let f = Fixture::new("sigterm");
+    let pidfile = f.base.join("term.pid");
+    let env = format!(
+        "baseline = false\n[control.env]\nPIDFILE = {}",
+        Value::from(pidfile.to_str().unwrap())
+    );
+    f.manifest(
+        "m.toml",
+        &ctl(
+            "hang",
+            "sleep 60 & echo $! > \"$PIDFILE\"; wait",
+            "plants/bad",
+            &env,
+        ),
+    );
+    let child = Command::new(env!("CARGO_BIN_EXE_plant"))
+        .arg("m.toml")
+        .current_dir(&f.repo)
+        .env("TMPDIR", &f.tmp)
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .unwrap();
+    let until = Instant::now() + Duration::from_secs(20);
+    while !pidfile.exists() && Instant::now() < until {
+        std::thread::sleep(Duration::from_millis(20));
+    }
+    let pid: i32 = fs::read_to_string(&pidfile)
+        .unwrap()
+        .trim()
+        .parse()
+        .unwrap();
+    // SAFETY: signalling the plant process this test spawned.
+    unsafe { libc::kill(child.id() as i32, libc::SIGTERM) };
+    let out = child.wait_with_output().unwrap();
+    assert_eq!(out.status.code(), Some(2), "{out:?}");
+    assert!(wait_dead(pid), "the check's child {pid} outlived plant");
+    assert!(
+        fs::read_dir(&f.tmp).unwrap().next().is_none(),
+        "temp dir left"
+    );
+}
+
 // ── manifest-level behaviour and exit codes ─────────────────────────────────
 
 // rivet: verifies REQ-002

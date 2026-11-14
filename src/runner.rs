@@ -6,9 +6,32 @@ use std::fs::File;
 use std::os::unix::process::{CommandExt, ExitStatusExt};
 use std::path::Path;
 use std::process::{Command, Stdio};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
 use crate::verdict::Outcome;
+
+static INTERRUPTED: AtomicBool = AtomicBool::new(false);
+
+extern "C" fn on_signal(_: libc::c_int) {
+    INTERRUPTED.store(true, Ordering::SeqCst);
+}
+
+/// On SIGINT/SIGTERM, only set a flag: the run loop then kills the check's
+/// group and the caller unwinds, so the temp dir is removed on the way out.
+pub fn install_signal_handlers() {
+    let handler = on_signal as extern "C" fn(libc::c_int) as libc::sighandler_t;
+    // SAFETY: the handler only stores to an atomic, which is signal-safe.
+    unsafe {
+        libc::signal(libc::SIGINT, handler);
+        libc::signal(libc::SIGTERM, handler);
+    }
+}
+
+/// True once plant has received SIGINT or SIGTERM.
+pub fn interrupted() -> bool {
+    INTERRUPTED.load(Ordering::SeqCst)
+}
 
 /// Run `cmd` from `cwd`; returns how it ended and its combined output.
 pub fn run(
@@ -53,12 +76,13 @@ fn run_inner(
         Err(e) => return Outcome::NotStarted(e.to_string()),
     };
     let pgid = child.id() as libc::pid_t;
-    let deadline = Instant::now() + Duration::from_secs_f64(timeout);
+    // A timeout too far ahead to represent is no deadline at all.
+    let deadline = Instant::now().checked_add(Duration::from_secs_f64(timeout));
     let timed_out = loop {
         if exited_unreaped(pgid) {
             break false;
         }
-        if Instant::now() >= deadline {
+        if interrupted() || deadline.is_some_and(|d| Instant::now() >= d) {
             break true;
         }
         std::thread::sleep(Duration::from_millis(10));

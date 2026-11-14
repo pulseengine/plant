@@ -38,7 +38,40 @@ impl WorkDir {
 
 impl Drop for WorkDir {
     fn drop(&mut self) {
-        let _ = fs::remove_dir_all(&self.0);
+        let _ = force_remove(&self.0);
+    }
+}
+
+/// Remove a tree, also when a check left read-only directories in it.
+pub fn force_remove(p: &Path) -> io::Result<()> {
+    match fs::symlink_metadata(p) {
+        Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(()),
+        Err(e) => return Err(e),
+        Ok(m) if !m.is_dir() => return fs::remove_file(p),
+        Ok(_) => {}
+    }
+    if fs::remove_dir_all(p).is_ok() {
+        return Ok(());
+    }
+    make_writable(p);
+    fs::remove_dir_all(p)
+}
+
+fn make_writable(dir: &Path) {
+    use std::os::unix::fs::PermissionsExt;
+    let Ok(m) = fs::symlink_metadata(dir) else {
+        return;
+    };
+    if !m.is_dir() {
+        return;
+    }
+    let mut perms = m.permissions();
+    perms.set_mode(perms.mode() | 0o700);
+    let _ = fs::set_permissions(dir, perms);
+    if let Ok(entries) = fs::read_dir(dir) {
+        for e in entries.flatten() {
+            make_writable(&e.path());
+        }
     }
 }
 
@@ -176,6 +209,20 @@ fn no_symlinked_parent(base: &Path, target: &Path) -> Result<(), String> {
     Ok(())
 }
 
+/// A planted symlink at `rel` must resolve, lexically, inside the scratch
+/// root; otherwise a check that writes through it writes outside.
+fn link_stays_inside(rel: &str, target: &Path) -> Result<(), String> {
+    let t = target.to_string_lossy();
+    if target.is_absolute() {
+        return Err(format!("symlink {rel} points to the absolute path {t}"));
+    }
+    let parent = Path::new(rel).parent().unwrap_or(Path::new(""));
+    let joined = parent.join(target);
+    inside(Path::new("/"), &joined.to_string_lossy())
+        .map(|_| ())
+        .map_err(|_| format!("symlink {rel} -> {t} points outside the scratch copy"))
+}
+
 /// A plant directory's contents.
 pub struct Plant {
     pub dir: PathBuf,
@@ -270,6 +317,7 @@ pub fn apply_plant(scratch: &Path, plant: &Plant) -> Result<(), String> {
             .file_type();
         if ft.is_symlink() {
             let target = fs::read_link(&src).map_err(|e| format!("{rel}: {e}"))?;
+            link_stays_inside(rel, &target)?;
             std::os::unix::fs::symlink(target, &dst).map_err(|e| format!("{rel}: {e}"))?;
         } else {
             fs::copy(&src, &dst).map_err(|e| format!("{rel}: {e}"))?;

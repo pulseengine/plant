@@ -117,7 +117,9 @@ fn control(t: &Table, i: usize) -> Result<Control, String> {
     let timeout = match t.get("timeout") {
         None => DEFAULT_TIMEOUT,
         Some(Value::Integer(n)) if *n > 0 => *n as f64,
-        Some(Value::Float(f)) if f.is_finite() && *f > 0.0 => *f,
+        Some(Value::Float(f)) if *f > 0.0 && std::time::Duration::try_from_secs_f64(*f).is_ok() => {
+            *f
+        }
         Some(_) => {
             return Err(format!(
                 "{where_}: `timeout` must be a positive number of seconds"
@@ -182,6 +184,8 @@ mod tests {
             (format!("{MIN}expect = \"pass\"\n"), "expect"),
             (format!("{MIN}timeout = 0\n"), "timeout"),
             (format!("{MIN}timeout = \"5\"\n"), "timeout"),
+            (format!("{MIN}timeout = 1e300\n"), "timeout"),
+            (format!("{MIN}timeout = nan\n"), "timeout"),
             (format!("{MIN}baseline = \"no\"\n"), "baseline"),
             (
                 format!("{MIN}stderr_or_stdout_matches = \"(\"\n"),

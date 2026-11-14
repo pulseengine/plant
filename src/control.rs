@@ -74,11 +74,13 @@ pub fn run_manifest(path: &Path, only: &[String]) -> Result<Report, String> {
     let head = work.path().join("head");
     scratch::export_head(root, &head)?;
     let tracked_changes = scratch::tracked_changes(root);
-    let results = controls
-        .iter()
-        .enumerate()
-        .map(|(i, c)| run_control(c, root, &head, work.path(), i))
-        .collect();
+    let mut results = Vec::new();
+    for (i, c) in controls.iter().enumerate() {
+        results.push(run_control(c, root, &head, work.path(), i));
+        if runner::interrupted() {
+            return Err("interrupted by a signal; nothing is reported".into());
+        }
+    }
     Ok(Report {
         results,
         tracked_changes,
@@ -119,7 +121,7 @@ fn run_control(c: &Control, root: &Path, head: &Path, work: &Path, i: usize) -> 
     } else {
         res.status = "PASS";
     }
-    let _ = fs::remove_dir_all(&scratch_dir);
+    let _ = scratch::force_remove(&scratch_dir);
     let _ = fs::remove_file(&log);
     res.seconds = (started.elapsed().as_secs_f64() * 10.0).round() / 10.0;
     res
@@ -138,13 +140,17 @@ fn attempt(
     verdict::check_plant(&plant.state, &c.plant)?;
 
     let fresh = || -> Result<(), String> {
-        let _ = fs::remove_dir_all(scratch_dir);
+        scratch::force_remove(scratch_dir)
+            .map_err(|e| format!("cannot reset the scratch copy: {e}"))?;
         scratch::copy_tree(head, scratch_dir).map_err(|e| format!("cannot copy HEAD: {e}"))
     };
 
     if c.baseline {
         fresh()?;
         let (outcome, out) = runner::run(&c.run, scratch_dir, &c.env, c.timeout, log);
+        if runner::interrupted() {
+            return Err("interrupted".into());
+        }
         res.baseline = baseline_label(&outcome);
         if let Err(reason) = verdict::judge_baseline(&outcome, c.timeout) {
             res.output_tail = tail(&out);

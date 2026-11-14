@@ -142,13 +142,17 @@ artifacts:
 
   - id: DD-004
     type: design-decision
-    title: A run killed by a signal counts as red
+    title: A planted run killed by a signal is not a red
     status: accepted
     fields:
       rationale: >
-        CI reports a crashed check as failed, so plant does too; the reason
-        line says "killed by signal N". Exit 126/127 and timeouts stay
-        not-red because they show the check never judged the input.
+        An OOM kill, a runner kill or a `kill -9 $$` in the check ends the
+        run without the check judging the input, so like a timeout or exit
+        126/127 it must not read as a rejection (fresh-context review of #2
+        reproduced a PASS on `kill -9 $$`). A baseline killed by a signal is
+        red. A shell reporting 128+N as an exit code is still read as that
+        exit code.
+      alternatives: Count it as red, as CI does (the first implementation).
     links:
       - type: satisfies
         target: REQ-001

@@ -28,10 +28,13 @@ A control FAILS when:
 - the baseline is red;
 - either run times out (a hang is not a red);
 - the command cannot start (exit 126/127 is not a red);
+- the planted run is killed by a signal (an OOM or runner kill is not a red);
 - the regex does not match;
 - the plant directory is missing, or has no files and no deletes (a `delete`
   file with only comments counts as empty);
-- a `delete` entry escapes the root or names a path not in the scratch copy.
+- a `delete` entry escapes the root or names a path not in the scratch copy;
+- a plant or delete path goes through a symlink, or a planted symlink points
+  outside the scratch copy.
 
 Output: one `PASS`/`FAIL  id  [check]: reason` line per control, the last lines
 of output for failures, a summary. `--format json`, `--only ID`.

@@ -53,8 +53,10 @@ pub fn judge_baseline(outcome: &Outcome, timeout: f64) -> Result<(), String> {
     }
 }
 
-/// The planted run must be a real rejection: non-zero, not a hang, not a
-/// command that could not start, and matching the regex when one is given.
+/// The planted run must be a real rejection: a non-zero exit, not a hang,
+/// not a kill by a signal (an OOM or runner kill is not the check judging the
+/// input), not a command that could not start, and matching the regex when
+/// one is given.
 pub fn judge_planted(
     outcome: &Outcome,
     timeout: f64,
@@ -80,8 +82,12 @@ pub fn judge_planted(
                 "FAIL-OPEN: planted run exited 0, the check did not notice the plant".into(),
             )
         }
+        Outcome::Signaled(s) => {
+            return Err(format!(
+                "planted run was killed by signal {s}, which is not a red"
+            ))
+        }
         Outcome::Exited(c) => format!("exited {c}"),
-        Outcome::Signaled(s) => format!("was killed by signal {s}"),
     };
     match regex {
         Some(re) if !re.is_match(output) => Err(format!(
