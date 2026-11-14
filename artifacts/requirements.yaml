@@ -1,0 +1,106 @@
+# Top-level requirements (draft, 2026-11-14), derived from docs/DESIGN.md.
+artifacts:
+  - id: REQ-001
+    type: requirement
+    title: Verdict rules
+    status: draft
+    description: >
+      plant shall apply the verdict rules of docs/DESIGN.md: a control fails on
+      a green planted run, a red baseline, a timeout, exit 126/127, a regex
+      mismatch, a missing or empty plant, or an invalid delete entry.
+    fields: {priority: must, category: functional}
+    links:
+      - type: constraint-satisfies
+        target: SC-1
+      - type: constraint-satisfies
+        target: SC-2
+
+  - id: REQ-002
+    type: requirement
+    title: Exit codes 0/1/2
+    status: draft
+    description: >
+      plant shall exit 0 when every control passes, 1 when any control fails or
+      none ran, and 2 when it cannot run (bad manifest, no git, no commit,
+      unknown --only id).
+    fields: {priority: must, category: interface}
+    links:
+      - type: constraint-satisfies
+        target: SC-2
+
+  - id: REQ-003
+    type: requirement
+    title: Manifest parsing is strict
+    status: draft
+    description: >
+      plant shall reject unknown keys, duplicate ids, wrong types, a bad regex,
+      expect values other than "fail", and plant paths escaping the root.
+    fields: {priority: must, category: interface}
+    links:
+      - type: constraint-satisfies
+        target: SC-1
+      - type: satisfies
+        target: SSC-2
+
+  - id: REQ-004
+    type: requirement
+    title: Scratch copies of HEAD
+    status: draft
+    description: >
+      plant shall export HEAD once, copy it per run, reset it between baseline
+      and planted run, overlay the plant from the working tree, apply delete
+      lists inside the root only, and remove all scratch on exit.
+    fields: {priority: must, category: functional}
+    links:
+      - type: constraint-satisfies
+        target: SC-3
+      - type: constraint-satisfies
+        target: SC-6
+      - type: satisfies
+        target: SSC-2
+
+  - id: REQ-005
+    type: requirement
+    title: Timeouts kill the whole process group
+    status: draft
+    fields: {priority: must, category: functional}
+    links:
+      - type: constraint-satisfies
+        target: SC-4
+
+  - id: REQ-006
+    type: requirement
+    title: Reporting in text and JSON
+    status: draft
+    description: >
+      plant shall print one PASS/FAIL line per control with its reason and the
+      output tail for failures, a summary, and the same data with --format
+      json; --only ID runs one control.
+    fields: {priority: must, category: interface}
+    links:
+      - type: constraint-satisfies
+        target: SC-5
+
+  - id: REQ-007
+    type: requirement
+    title: plant's own CI plants its failure modes
+    status: draft
+    description: >
+      plant's CI shall run plant on its own ci-controls.toml and its tests
+      shall plant fail-open, red-baseline, missing-plant, timeout and
+      empty-manifest cases, each expected red.
+    fields: {priority: must, category: non-functional}
+    links:
+      - type: constraint-satisfies
+        target: SC-1
+      - type: constraint-satisfies
+        target: SC-2
+
+  - id: REQ-008
+    type: requirement
+    title: CI and action never expose self-hosted runners to forks
+    status: draft
+    fields: {priority: must, category: constraint}
+    links:
+      - type: satisfies
+        target: SSC-1

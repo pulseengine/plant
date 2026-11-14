@@ -1,0 +1,180 @@
+# STPA seed for plant (draft, 2026-11-14). Placeholders the real analysis
+# (control structure, UCAs, loss scenarios) will refine.
+artifacts:
+  - id: L-1
+    type: loss
+    title: False assurance from a CI check
+    status: draft
+    description: >
+      A CI check is treated as evidence (a required check, a release gate, an
+      audit claim) although it cannot fail, so defects it was meant to stop
+      reach main or a release unnoticed.
+    fields:
+      stakeholders: [maintainers, release-consumers, auditors]
+
+  - id: L-2
+    type: loss
+    title: Damage to the repository under test
+    status: draft
+    description: >
+      Running plant changes, deletes or pollutes the user's working tree, index
+      or files outside it, losing uncommitted work.
+    fields:
+      stakeholders: [maintainers]
+
+  - id: L-3
+    type: loss
+    title: Lost trust in plant's verdicts
+    status: draft
+    description: >
+      plant raises false alarms or hangs CI, so teams disable it or ignore its
+      verdicts, and broken checks go unnoticed again.
+    fields:
+      stakeholders: [maintainers]
+
+  - id: H-1
+    type: hazard
+    title: A fail-open check is reported as potent
+    status: draft
+    description: >
+      plant reports PASS for a control whose check did not reject the planted
+      input: the planted run exited 0, timed out, could not start (126/127),
+      did not match the required output, or the plant was missing or empty.
+    fields:
+      severity: critical
+    links:
+      - type: leads-to-loss
+        target: L-1
+
+  - id: H-2
+    type: hazard
+    title: Overall success with nothing compared
+    status: draft
+    description: >
+      plant exits 0 although no control was actually exercised: an empty
+      manifest, every control skipped, or a red baseline that makes the
+      planted red meaningless.
+    fields:
+      severity: critical
+    links:
+      - type: leads-to-loss
+        target: L-1
+
+  - id: H-3
+    type: hazard
+    title: A check runs outside a scratch copy
+    status: draft
+    description: >
+      A baseline or planted run executes in, or writes to, the user's working
+      tree (or a plant or delete path escapes the scratch root), so planted
+      faults or deletions land in real files.
+    fields:
+      severity: critical
+    links:
+      - type: leads-to-loss
+        target: L-2
+
+  - id: H-4
+    type: hazard
+    title: A run outlives plant
+    status: draft
+    description: >
+      A hung check, or a child process of the shell, survives its timeout or
+      plant's exit, or a scratch directory is left behind.
+    fields:
+      severity: marginal
+    links:
+      - type: leads-to-loss
+        target: L-2
+      - type: leads-to-loss
+        target: L-3
+
+  - id: H-5
+    type: hazard
+    title: False alarm on a check that does reject the plant
+    status: draft
+    description: >
+      plant reports FAIL for a check that does reject the plant, because the
+      scratch copy differs from CI (no .git, missing environment) or the
+      baseline is polluted by the planted run.
+    fields:
+      severity: marginal
+    links:
+      - type: leads-to-loss
+        target: L-3
+
+  - id: H-6
+    type: hazard
+    title: The check under test differs from the reviewed check
+    status: draft
+    description: >
+      Tracked files are dirty, so the scratch copy of HEAD tests a different
+      check than the working tree holds, and the verdict is attributed to code
+      that was never run.
+    fields:
+      severity: marginal
+    links:
+      - type: leads-to-loss
+        target: L-1
+
+  - id: SC-1
+    type: system-constraint
+    title: PASS only on a red planted run that is a real rejection
+    status: draft
+    description: >
+      plant shall report a control as passing only when the planted run exits
+      non-zero, not by timeout and not with 126/127, matches the optional
+      regex, and the plant directory has at least one file or delete.
+    links:
+      - type: prevents
+        target: H-1
+
+  - id: SC-2
+    type: system-constraint
+    title: Exit 0 only when at least one control was compared and all passed
+    status: draft
+    description: >
+      plant shall exit non-zero for an empty manifest and for any red
+      baseline, and shall report a skipped baseline as skipped.
+    links:
+      - type: prevents
+        target: H-2
+
+  - id: SC-3
+    type: system-constraint
+    title: Every run happens in a fresh scratch copy of HEAD
+    status: draft
+    description: >
+      plant shall run each baseline and planted run in its own copy exported
+      from HEAD, shall refuse plant and delete paths that escape the root, and
+      shall leave the working tree byte-identical.
+    links:
+      - type: prevents
+        target: H-3
+
+  - id: SC-4
+    type: system-constraint
+    title: Timeouts kill the process group and scratch is removed
+    status: draft
+    links:
+      - type: prevents
+        target: H-4
+
+  - id: SC-5
+    type: system-constraint
+    title: Every FAIL names its cause and shows the run's output
+    status: draft
+    description: >
+      plant shall state why a control failed and show the tail of the output,
+      so a false alarm can be diagnosed instead of ignored.
+    links:
+      - type: prevents
+        target: H-5
+
+  - id: SC-6
+    type: system-constraint
+    title: Dirty tracked files are reported
+    status: draft
+    links:
+      - type: prevents
+        target: H-6
