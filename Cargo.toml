@@ -1,0 +1,9 @@
+[package]
+description = "Prove your CI checks can fail: run each check against planted bad inputs"
+license = "Apache-2.0"
+repository = "https://github.com/pulseengine/plant"
+name = "plant"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
