@@ -28,10 +28,13 @@ A control FAILS when:
 - the baseline is red;
 - either run times out (a hang is not a red);
 - the command cannot start (exit 126/127 is not a red);
+- the planted run is killed by a signal (an OOM or runner kill is not a red);
 - the regex does not match;
 - the plant directory is missing, or has no files and no deletes (a `delete`
   file with only comments counts as empty);
-- a `delete` entry escapes the root or names a path not in the scratch copy.
+- a `delete` entry escapes the root or names a path not in the scratch copy;
+- a plant or delete path goes through a symlink, or a planted symlink points
+  outside the scratch copy.
 
 Output: one `PASS`/`FAIL  id  [check]: reason` line per control, the last lines
 of output for failures, a summary. `--format json`, `--only ID`.
@@ -56,6 +59,14 @@ of output for failures, a summary. `--format json`, `--only ID`.
   (e.g. an option to keep a shallow `.git`).
 - Exit 126/127 must not read as a red.
 - `baseline = false` must be reported as skipped, not silently passed.
+- A copied plant file can keep its old mtime (`std::fs::copy` on macOS), and an
+  mtime-cached build such as cargo then skips it: the check runs without the
+  plant and reads as fail-open. Found by plant's first run on itself; planted
+  files are now stamped with the current time.
+- A check's caches outside the scratch copy are outside plant's protection. A
+  shared `CARGO_TARGET_DIR` let a planted build overwrite the real
+  `target/debug/plant`, so later tests ran the mutant. Point such caches at a
+  dedicated directory, never the repository's own.
 
 ## Self-test cases (both directions)
 

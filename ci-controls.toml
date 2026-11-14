@@ -1,0 +1,50 @@
+# plant's own controls: each plants a broken copy of a source file and
+# expects a named self-test to go red. The plants are generated and checked by
+# tests/plants.rs. Run: `plant` from the repository root.
+#
+# To share compiled dependencies between the scratch copies, set
+# CARGO_TARGET_DIR to a dedicated absolute directory, never this repository's
+# own target/: cargo copies each build's binary to the shared
+# <target>/debug/plant, so a planted build would replace your real binary.
+
+[[control]]
+id = "fail-open"
+check = "Test"
+run = "cargo test --test selftest fail_open_is_fail"
+plant = "ci-controls/fail-open"
+stderr_or_stdout_matches = 'test fail_open_is_fail \.\.\. FAILED'
+
+[[control]]
+id = "red-baseline"
+check = "Test"
+run = "cargo test --test selftest baseline_red_is_fail"
+plant = "ci-controls/red-baseline"
+stderr_or_stdout_matches = 'test baseline_red_is_fail \.\.\. FAILED'
+
+[[control]]
+id = "missing-plant"
+check = "Test"
+run = "cargo test --test selftest missing_plant_is_fail"
+plant = "ci-controls/missing-plant"
+stderr_or_stdout_matches = 'test missing_plant_is_fail \.\.\. FAILED'
+
+[[control]]
+id = "timeout"
+check = "Test"
+run = "cargo test --test selftest timeout_is_fail_and_kills_the_group"
+plant = "ci-controls/timeout"
+stderr_or_stdout_matches = 'test timeout_is_fail_and_kills_the_group \.\.\. FAILED'
+
+[[control]]
+id = "empty-manifest"
+check = "Test"
+run = "cargo test --test selftest empty_manifest_exits_1"
+plant = "ci-controls/empty-manifest"
+stderr_or_stdout_matches = 'test empty_manifest_exits_1 \.\.\. FAILED'
+
+[[control]]
+id = "kill-shell-only"
+check = "Test"
+run = "cargo test --test selftest timeout_is_fail_and_kills_the_group"
+plant = "ci-controls/kill-shell-only"
+stderr_or_stdout_matches = 'survived the timeout'

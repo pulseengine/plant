@@ -1,0 +1,173 @@
+# Features of the plant CLI (2026-11-14) and the decisions behind them.
+artifacts:
+  - id: FEAT-001
+    type: feature
+    title: Strict manifest parsing
+    status: implemented
+    description: src/manifest.rs reads ci-controls.toml and refuses anything it does not understand.
+    fields:
+      phase: phase-1
+      acceptance-criteria:
+        - unknown keys, duplicate ids, wrong types, bad regex and expect other than "fail" exit 2
+    links:
+      - type: satisfies
+        target: REQ-003
+
+  - id: FEAT-002
+    type: feature
+    title: Scratch copies of HEAD and planting
+    status: implemented
+    description: >
+      src/scratch.rs exports HEAD with git archive, copies it per run, overlays
+      the plant from the working tree, applies delete lists, and refuses paths
+      that escape the root or go through a symlink.
+    fields:
+      phase: phase-1
+      acceptance-criteria:
+        - the working tree is byte-identical after a run and TMPDIR is empty
+        - escaping plant and delete paths fail the control
+    links:
+      - type: satisfies
+        target: REQ-004
+
+  - id: FEAT-003
+    type: feature
+    title: Process-group runner with timeout
+    status: implemented
+    description: >
+      src/runner.rs runs /bin/sh -c in its own process group and kills the
+      whole group on timeout and when the run ends.
+    fields:
+      phase: phase-1
+      acceptance-criteria:
+        - a timed-out run's children are dead when plant reports
+    links:
+      - type: satisfies
+        target: REQ-005
+
+  - id: FEAT-004
+    type: feature
+    title: Verdict rules and exit codes
+    status: implemented
+    description: src/verdict.rs holds the verdict rules of docs/DESIGN.md as pure functions.
+    fields:
+      phase: phase-1
+    links:
+      - type: satisfies
+        target: REQ-001
+      - type: satisfies
+        target: REQ-002
+
+  - id: FEAT-005
+    type: feature
+    title: Text and JSON reports, --only, docs command
+    status: implemented
+    fields:
+      phase: phase-1
+    links:
+      - type: satisfies
+        target: REQ-006
+
+  - id: FEAT-006
+    type: feature
+    title: plant runs its own controls in CI
+    status: implemented
+    description: >
+      ci-controls.toml plants six broken source files (fail-open, red-baseline,
+      missing-plant, timeout, empty-manifest, kill-shell-only); the CI job
+      "plant self-controls" runs plant on it and needs all six red in the
+      named test.
+    fields:
+      phase: phase-1
+    links:
+      - type: satisfies
+        target: REQ-007
+
+  - id: FEAT-007
+    type: feature
+    title: Fork-guarded CI jobs
+    status: implemented
+    description: >
+      Every job in .github/workflows/ci.yml uses the fail-closed fork guard;
+      no workflow uses pull_request_target.
+    fields:
+      phase: phase-1
+    links:
+      - type: satisfies
+        target: REQ-008
+
+  - id: DD-001
+    type: design-decision
+    title: Self-control plants are generated whole-file copies, drift-checked
+    status: accepted
+    description: Each plant is its source file with one text replacement; tests/plants.rs holds the table.
+    fields:
+      rationale: >
+        A plant overlays whole files, so a planted copy of a source file goes
+        stale when the source changes. Generating it from a one-line
+        replacement and failing the test suite on any difference keeps the
+        plant, its source and ci-controls.toml in step (set-equal both ways).
+      alternatives: Hand-maintained copies; patch files applied by a script.
+    links:
+      - type: satisfies
+        target: REQ-007
+
+  - id: DD-002
+    type: design-decision
+    title: Planted files get the current mtime
+    status: accepted
+    fields:
+      rationale: >
+        Found by plant's first run on itself: std::fs::copy kept the source
+        mtime on macOS, cargo judged the planted verdict.rs older than its
+        cache and did not rebuild, and all six controls went FAIL-OPEN.
+        Stamping the overlay with the current time makes mtime-cached builds
+        see the plant. Self-test planted_files_are_newer_than_the_baseline.
+    links:
+      - type: satisfies
+        target: REQ-004
+
+  - id: DD-003
+    type: design-decision
+    title: Kill the process group before reaping the leader
+    status: accepted
+    fields:
+      rationale: >
+        The group id is the leader's pid. Waiting with WNOWAIT keeps the
+        leader as a zombie until the group is killed, so the pid cannot be
+        reused by an unrelated process between exit and kill.
+    links:
+      - type: satisfies
+        target: REQ-005
+
+  - id: DD-004
+    type: design-decision
+    title: A planted run killed by a signal is not a red
+    status: accepted
+    fields:
+      rationale: >
+        An OOM kill, a runner kill or a `kill -9 $$` in the check ends the
+        run without the check judging the input, so like a timeout or exit
+        126/127 it must not read as a rejection (fresh-context review of #2
+        reproduced a PASS on `kill -9 $$`). A baseline killed by a signal is
+        red. A shell reporting 128+N as an exit code is still read as that
+        exit code.
+      alternatives: Count it as red, as CI does (the first implementation).
+    links:
+      - type: satisfies
+        target: REQ-001
+
+  - id: DD-005
+    type: design-decision
+    title: Self-controls build in a dedicated target dir
+    status: accepted
+    fields:
+      rationale: >
+        Found while running plant on itself: with CARGO_TARGET_DIR set to the
+        repository's own target/, a planted build overwrote target/debug/plant
+        (cargo copies every build's binary there), and the next local test run
+        exercised the mutant. CI gives the controls runner.temp, separate from
+        the build plant itself runs from.
+    links:
+      - type: satisfies
+        target: REQ-007
