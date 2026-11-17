@@ -61,12 +61,13 @@ fn run_sh(dir: &Path, env: &[(&str, &str)]) -> Output {
 fn refuses_pull_request_target() {
     let t = tmp("prt");
     let out = run_sh(&t.0, &[("GITHUB_EVENT_NAME", "pull_request_target")]);
-    assert_eq!(out.status.code(), Some(2), "{out:?}");
-    assert!(String::from_utf8_lossy(&out.stderr).contains("pull_request_target"));
+    // First, so a missing guard fails with this message and nothing else.
     assert!(
         !t.0.join("args").exists(),
         "plant ran under pull_request_target"
     );
+    assert_eq!(out.status.code(), Some(2), "{out:?}");
+    assert!(String::from_utf8_lossy(&out.stderr).contains("pull_request_target"));
     // The twin: an ordinary pull_request runs plant.
     let out = run_sh(&t.0, &[("GITHUB_EVENT_NAME", "pull_request")]);
     assert_eq!(out.status.code(), Some(0), "{out:?}");
