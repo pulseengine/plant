@@ -10,6 +10,7 @@
 
 use std::collections::BTreeSet;
 use std::fs;
+use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 
 /// (control id, source file, text replaced, replacement)
@@ -64,6 +65,12 @@ const PLANTS: &[(&str, &str, &str, &str)] = &[
         "    if failed > 0 {",
     ),
     (
+        "action-allows-prt",
+        "action/run.sh",
+        "if [ \"${GITHUB_EVENT_NAME:-}\" = \"pull_request_target\" ]; then",
+        "if false; then",
+    ),
+    (
         "kill-shell-only",
         "src/runner.rs",
         "libc::kill(-pgid, libc::SIGKILL);",
@@ -88,14 +95,23 @@ fn plants_match_their_source() {
         );
         let want = src.replacen(old, new, 1);
         let path = root().join("ci-controls").join(id).join(file);
+        let mode = fs::metadata(root().join(file)).unwrap().permissions();
         if regen {
             fs::create_dir_all(path.parent().unwrap()).unwrap();
             fs::write(&path, &want).unwrap();
+            fs::set_permissions(&path, mode.clone()).unwrap();
         }
         let have = fs::read_to_string(&path).unwrap_or_default();
         assert!(
             have == want,
             "plant {id} is stale against {file}; run PLANT_REGEN=1 cargo test --test plants"
+        );
+        // A plant that loses the executable bit fails for the wrong reason.
+        let have_mode = fs::metadata(&path).unwrap().permissions();
+        assert_eq!(
+            have_mode.mode() & 0o111,
+            mode.mode() & 0o111,
+            "plant {id}: executable bits differ from {file}"
         );
     }
 }

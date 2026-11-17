@@ -1,0 +1,131 @@
+//! The GitHub Action wrapper: action/run.sh and action.yml.
+
+use std::fs;
+use std::path::{Path, PathBuf};
+use std::process::{Command, Output};
+
+fn root() -> &'static Path {
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+}
+
+struct Tmp(PathBuf);
+
+impl Drop for Tmp {
+    fn drop(&mut self) {
+        let _ = fs::remove_dir_all(&self.0);
+    }
+}
+
+fn tmp(name: &str) -> Tmp {
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    let p = std::env::temp_dir().join(format!(
+        "plant-action-{name}-{}-{nanos}",
+        std::process::id()
+    ));
+    fs::create_dir_all(&p).unwrap();
+    Tmp(p)
+}
+
+/// A stand-in for plant: records one argument per line, exits with $FAKE_RC.
+fn fake_plant(dir: &Path) -> PathBuf {
+    let p = dir.join("fake-plant");
+    fs::write(
+        &p,
+        "#!/bin/sh\nfor a in \"$@\"; do echo \"$a\"; done > \"$FAKE_ARGS\"\n\
+         echo fake report\nexit \"${FAKE_RC:-0}\"\n",
+    )
+    .unwrap();
+    Command::new("chmod").arg("+x").arg(&p).status().unwrap();
+    p
+}
+
+fn run_sh(dir: &Path, env: &[(&str, &str)]) -> Output {
+    let mut c = Command::new(root().join("action/run.sh"));
+    c.current_dir(dir)
+        .env_remove("GITHUB_EVENT_NAME")
+        .env_remove("GITHUB_STEP_SUMMARY")
+        .env("PLANT_BIN", fake_plant(dir))
+        .env("FAKE_ARGS", dir.join("args"))
+        .env("PLANT_REPORT", dir.join("report"));
+    for (k, v) in env {
+        c.env(k, v);
+    }
+    c.output().unwrap()
+}
+
+// rivet: verifies REQ-009
+#[test]
+fn refuses_pull_request_target() {
+    let t = tmp("prt");
+    let out = run_sh(&t.0, &[("GITHUB_EVENT_NAME", "pull_request_target")]);
+    assert_eq!(out.status.code(), Some(2), "{out:?}");
+    assert!(String::from_utf8_lossy(&out.stderr).contains("pull_request_target"));
+    assert!(
+        !t.0.join("args").exists(),
+        "plant ran under pull_request_target"
+    );
+    // The twin: an ordinary pull_request runs plant.
+    let out = run_sh(&t.0, &[("GITHUB_EVENT_NAME", "pull_request")]);
+    assert_eq!(out.status.code(), Some(0), "{out:?}");
+    assert!(t.0.join("args").exists());
+}
+
+// rivet: verifies REQ-009
+#[test]
+fn inputs_reach_plant_as_arguments() {
+    let t = tmp("args");
+    let summary = t.0.join("summary.md");
+    let out = run_sh(
+        &t.0,
+        &[
+            ("PLANT_MANIFEST", "m.toml"),
+            ("PLANT_ONLY", "a  b *"),
+            ("PLANT_FORMAT", "json"),
+            ("GITHUB_STEP_SUMMARY", summary.to_str().unwrap()),
+            ("FAKE_RC", "1"),
+        ],
+    );
+    assert_eq!(
+        out.status.code(),
+        Some(1),
+        "plant's exit code must pass through"
+    );
+    let args = fs::read_to_string(t.0.join("args")).unwrap();
+    assert_eq!(
+        args.lines().collect::<Vec<_>>(),
+        ["m.toml", "--format", "json", "--only", "a", "--only", "b", "--only", "*"]
+    );
+    assert_eq!(
+        fs::read_to_string(t.0.join("report")).unwrap(),
+        "fake report\n"
+    );
+    assert!(String::from_utf8_lossy(&out.stdout).contains("fake report"));
+    let s = fs::read_to_string(&summary).unwrap();
+    assert!(
+        s.contains("plant (exit 1)") && s.contains("fake report"),
+        "{s}"
+    );
+}
+
+// Expressions in action.yml may only feed env: values (or the outputs map),
+// never a run: script, where an input could inject shell code.
+// rivet: verifies REQ-009
+#[test]
+fn action_yml_keeps_expressions_out_of_scripts() {
+    let text = fs::read_to_string(root().join("action.yml")).unwrap();
+    let env_line =
+        regex::Regex::new(r"^\s+[A-Z_]+: \$\{\{ [a-z_.]+ \}\}[A-Za-z0-9_./-]*$").unwrap();
+    let value_line = regex::Regex::new(r"^\s+value: \$\{\{ [a-z_.]+ \}\}$").unwrap();
+    let mut seen = 0;
+    for line in text.lines().filter(|l| l.contains("${{")) {
+        seen += 1;
+        assert!(
+            env_line.is_match(line) || value_line.is_match(line),
+            "expression outside env/value: {line:?}"
+        );
+    }
+    assert!(seen > 0, "no expressions found: nothing was compared");
+}

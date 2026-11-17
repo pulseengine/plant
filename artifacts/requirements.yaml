@@ -104,3 +104,21 @@ artifacts:
     links:
       - type: satisfies
         target: SSC-1
+
+  - id: REQ-009
+    type: requirement
+    title: GitHub Action wrapper that cannot be pointed at fork code with secrets
+    status: draft
+    description: >
+      plant shall ship a GitHub Action that runs plant on the caller's
+      manifest, refuses to run under pull_request_target, passes every input
+      to its scripts only through the environment, and fails the step with
+      plant's exit code.
+    fields: {priority: must, category: interface}
+    links:
+      - type: satisfies
+        target: SSC-1
+      - type: satisfies
+        target: SSC-2
+      - type: constraint-satisfies
+        target: SC-2

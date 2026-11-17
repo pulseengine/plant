@@ -171,3 +171,21 @@ artifacts:
     links:
       - type: satisfies
         target: REQ-007
+
+  - id: FEAT-008
+    type: feature
+    title: GitHub Action (action.yml + action/run.sh)
+    status: implemented
+    description: >
+      A composite action that builds plant from its own source and runs
+      action/run.sh. plant's CI job "plant self-controls" uses it (uses: ./),
+      and the self-control action-allows-prt plants a run.sh without the
+      pull_request_target refusal.
+    fields:
+      phase: phase-1
+      acceptance-criteria:
+        - under pull_request_target the step exits 2 before plant runs
+        - action.yml interpolates expressions only into env and output values
+    links:
+      - type: satisfies
+        target: REQ-009
