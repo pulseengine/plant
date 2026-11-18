@@ -69,3 +69,20 @@ check = "Test"
 run = "cargo test --test release smoke_rejects_a_binary_of_another_version"
 plant = "ci-controls/release-wrong-version"
 stderr_or_stdout_matches = 'a binary of another version passed the smoke test'
+
+# plant guard must reject a self-hosted job without the fail-closed form
+[[control]]
+id = "guard-unguarded-site"
+check = "plant guard"
+run = "cargo run -q -- guard"
+plant = "ci-controls/guard-unguarded-site"
+stderr_or_stdout_matches = 'ci\.yml:\d+ \(self-controls\): runs-on is not a hosted image'
+
+# plant guard must reject a runner label outside plant-guard.toml (loom#532)
+[[control]]
+id = "guard-bad-label"
+check = "plant guard"
+run = "cargo run -q -- guard"
+plant = "ci-controls/guard-bad-label"
+stderr_or_stdout_matches = 'ci\.yml:\d+ \(self-controls\): runner label "\}\.\$l\.q\{" is not in plant-guard\.toml labels'
+

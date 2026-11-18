@@ -1,0 +1,3 @@
+# plant guard config for this repository: the runner labels provisioned for
+# pulseengine's self-hosted pool that plant's own workflows may select.
+labels = ["self-hosted", "linux", "x64", "light"]

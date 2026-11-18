@@ -42,6 +42,11 @@ jobs:
         run: cargo clippy --all-targets -- -D warnings
       - name: test
         run: cargo test --all-targets --no-fail-fast
+      # plant guard on plant's own workflows (labels in plant-guard.toml).
+      # Controls guard-unguarded-site and guard-bad-label plant a ci.yml it
+      # must reject.
+      - name: plant guard
+        run: cargo run -q -- guard
 
   self-controls:
     name: plant self-controls

@@ -88,6 +88,18 @@ const PLANTS: &[(&str, &str, &str, &str)] = &[
         "libc::kill(-pgid, libc::SIGKILL);",
         "libc::kill(pgid, libc::SIGKILL);",
     ),
+    (
+        "guard-unguarded-site",
+        ".github/workflows/ci.yml",
+        "    name: plant self-controls\n    # Fork PRs never reach self-hosted runners (fail-closed same-repo guard).\n    runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && fromJSON('[\"self-hosted\",\"linux\",\"x64\",\"light\"]') || 'ubuntu-24.04' }}",
+        "    name: plant self-controls\n    runs-on: [self-hosted, linux, x64, light]",
+    ),
+    (
+        "guard-bad-label",
+        ".github/workflows/ci.yml",
+        "    name: plant self-controls\n    # Fork PRs never reach self-hosted runners (fail-closed same-repo guard).\n    runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && fromJSON('[\"self-hosted\",\"linux\",\"x64\",\"light\"]') || 'ubuntu-24.04' }}",
+        "    name: plant self-controls\n    # Fork PRs never reach self-hosted runners (fail-closed same-repo guard).\n    runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && fromJSON('[\"self-hosted\",\"linux\",\"x64\",\"}.$l.q{\"]') || 'ubuntu-24.04' }}",
+    ),
 ];
 
 fn root() -> &'static Path {

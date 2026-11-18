@@ -4,6 +4,7 @@
 
 mod control;
 mod docs;
+mod guard;
 mod manifest;
 mod report;
 mod runner;
@@ -44,6 +45,18 @@ struct Cli {
 enum Cmd {
     /// Show embedded documentation; without a topic, list the topics
     Docs { topic: Option<String> },
+    /// Check that no workflow can route a fork pull request to a self-hosted runner
+    Guard {
+        /// Repository root holding .github/workflows
+        #[arg(default_value = ".")]
+        dir: PathBuf,
+        /// Config file (default: DIR/plant-guard.toml when present)
+        #[arg(long)]
+        config: Option<PathBuf>,
+        /// Output format
+        #[arg(long, value_enum, default_value_t = Format::Text)]
+        format: Format,
+    },
 }
 
 #[derive(Clone, Copy, ValueEnum)]
@@ -54,6 +67,27 @@ enum Format {
 
 fn main() -> ExitCode {
     let cli = Cli::parse();
+    if let Some(Cmd::Guard {
+        dir,
+        config,
+        format,
+    }) = &cli.command
+    {
+        let r = guard::load_config(dir, config.as_deref()).and_then(|c| guard::run(dir, &c));
+        return match r {
+            Err(e) => {
+                eprintln!("plant guard: {e}");
+                ExitCode::from(2)
+            }
+            Ok(r) => {
+                match format {
+                    Format::Text => println!("{}", guard::text(&r)),
+                    Format::Json => println!("{}", guard::json(&r)),
+                }
+                ExitCode::from(r.exit_code())
+            }
+        };
+    }
     if let Some(Cmd::Docs { topic }) = cli.command {
         return match topic {
             None => {
