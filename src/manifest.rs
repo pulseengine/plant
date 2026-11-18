@@ -216,6 +216,7 @@ mod tests {
         assert_eq!(c.env.get("K").map(String::as_str), Some("v"));
     }
 
+    // rivet: verifies REQ-003
     #[test]
     fn empty_manifest_has_no_controls() {
         assert!(parse("# nothing\n").unwrap().is_empty());
