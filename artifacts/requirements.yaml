@@ -139,3 +139,52 @@ artifacts:
       - type: satisfies
         target: SSC-3
 
+  - id: REQ-011
+    type: requirement
+    title: plant guard rejects any workflow line that can route a fork PR to a self-hosted runner
+    status: draft
+    description: >
+      `plant guard` shall read every .github/workflows/*.yml and *.yaml and
+      fail (exit 1) unless every runs-on is a hosted image, the fail-closed
+      same-repo form with the configured hosted fallback, its matrix variant,
+      or a plain matrix reference whose every value is a hosted image; every
+      other line naming self-hosted is a matrix runner under the matrix form;
+      and no workflow with a self-hosted job has a trigger outside push,
+      pull_request, schedule, workflow_dispatch and merge_group. It shall fail
+      when it finds no self-hosted line (compared nothing) and exit 2 when the
+      workflows or the config cannot be read. Ported from relay's
+      scripts/check-selfhosted-fork-guard.rs (relay f852816).
+    fields: {priority: must, category: functional}
+    links:
+      - type: satisfies
+        target: SSC-1
+
+  - id: REQ-012
+    type: requirement
+    title: plant guard rejects runner labels outside the declared set
+    status: draft
+    description: >
+      `plant guard` shall read the provisioned labels from plant-guard.toml
+      and fail on any label in a self-hosted fromJSON list, a matrix runner
+      list or an exempt workflow's runs-on that is not in that set. A
+      self-hosted line with no declared label set fails.
+    fields: {priority: must, category: functional}
+    links:
+      - type: satisfies
+        target: SSC-4
+
+  - id: REQ-013
+    type: requirement
+    title: plant guard exemptions hold only for workflows a fork cannot trigger
+    status: draft
+    description: >
+      plant-guard.toml may exempt a workflow, with a reason, from the
+      fail-closed form. `plant guard` shall honour the exemption only when
+      every trigger of that workflow is schedule, workflow_dispatch or push;
+      otherwise the exemption itself is a violation. An exemption naming a
+      workflow that does not exist is a violation. Labels are still checked.
+    fields: {priority: must, category: functional}
+    links:
+      - type: satisfies
+        target: SSC-1
+

@@ -210,3 +210,27 @@ artifacts:
       - type: satisfies
         target: REQ-010
 
+  - id: FEAT-010
+    type: feature
+    title: plant guard, the shared self-hosted fork-guard checker
+    status: implemented
+    description: >
+      A `plant guard [DIR]` subcommand with plant-guard.toml (fallback image,
+      provisioned labels, exemptions), text and JSON output, relay's 19 unit
+      tests plus label and exemption tests, and planted negative controls in
+      plant's own ci-controls.toml: an unguarded site and a bad label.
+    fields:
+      phase: phase-2
+      acceptance-criteria:
+        - relay's 19 decision cases give the same verdicts
+        - a planted unguarded self-hosted job turns plant guard red
+        - a planted label outside the declared set turns plant guard red
+        - an exemption on a pull_request workflow is itself a violation
+    links:
+      - type: satisfies
+        target: REQ-011
+      - type: satisfies
+        target: REQ-012
+      - type: satisfies
+        target: REQ-013
+

@@ -786,7 +786,7 @@ fn cli_conventions() {
     assert_eq!(bad.status.code(), Some(2));
     assert!(!bad.stderr.is_empty());
     assert_eq!(plant(&["docs"]).status.code(), Some(0));
-    for t in ["manifest", "verdicts", "exit-codes", "mechanics"] {
+    for t in ["manifest", "verdicts", "exit-codes", "mechanics", "guard"] {
         assert_eq!(plant(&["docs", t]).status.code(), Some(0), "docs {t}");
     }
     assert_eq!(plant(&["docs", "nope"]).status.code(), Some(2));

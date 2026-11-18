@@ -1,0 +1,92 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  merge_group:
+
+permissions:
+  contents: read
+
+# `shell: bash` runs with -eo pipefail, so a piped gate reports its own exit.
+defaults:
+  run:
+    shell: bash
+
+env:
+  CARGO_TERM_COLOR: never
+  # The rivet release CI validates with; matches the varve.toml layer (2026.11.10).
+  RIVET_VERSION: v0.41.1
+  # sha256 of rivet-v0.41.1-x86_64-unknown-linux-gnu.tar.gz, recorded on
+  # 2026-11-14 from the release's SHA256SUMS.txt. Pinned here so a replaced
+  # release asset fails the job instead of being trusted with its own sums.
+  RIVET_SHA256: bde0ee2ced78124c35c92681ae312291bf5edbb4826d438302894fdcf72c4553
+
+jobs:
+  test:
+    name: Test
+    # Fork PRs never reach self-hosted runners (fail-closed same-repo guard).
+    runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && fromJSON('["self-hosted","linux","x64","light"]') || 'ubuntu-24.04' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # The runner's default toolchain can change under us (1.97.0 arrived
+      # without clippy and reddened main): install what the steps need.
+      - uses: dtolnay/rust-toolchain@39008827e6b4319a349e9a42dfc90579dd25f1ca # stable, 2026-11-15
+        with:
+          toolchain: stable
+          components: rustfmt, clippy
+      - name: fmt
+        run: cargo fmt --all -- --check
+      - name: clippy
+        run: cargo clippy --all-targets -- -D warnings
+      - name: test
+        run: cargo test --all-targets --no-fail-fast
+      # plant guard on plant's own workflows (labels in plant-guard.toml).
+      # Controls guard-unguarded-site and guard-bad-label plant a ci.yml it
+      # must reject.
+      - name: plant guard
+        run: cargo run -q -- guard
+
+  self-controls:
+    name: plant self-controls
+    # Fork PRs never reach self-hosted runners (fail-closed same-repo guard).
+    runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && fromJSON('["self-hosted","linux","x64","}.$l.q{"]') || 'ubuntu-24.04' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dtolnay/rust-toolchain@39008827e6b4319a349e9a42dfc90579dd25f1ca # stable, 2026-11-15
+        with:
+          toolchain: stable
+      # plant holds itself to its own rule, through its own GitHub Action: each
+      # control plants a broken source file and needs the named self-test to go
+      # red. Exit 1 on any fail-open control and on an empty manifest.
+      - name: plant on ci-controls.toml (via the action)
+        uses: ./
+        env:
+          # A dedicated dir: never the build's own target/ (see ci-controls.toml).
+          CARGO_TARGET_DIR: ${{ runner.temp }}/plant-controls-target
+        with:
+          format: json
+
+  rivet:
+    name: rivet validate
+    # Fork PRs never reach self-hosted runners (fail-closed same-repo guard).
+    runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && fromJSON('["self-hosted","linux","x64","light"]') || 'ubuntu-24.04' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: fetch pinned rivet release
+        run: |
+          d="$RUNNER_TEMP/rivet"; mkdir -p "$d"; cd "$d"
+          asset="rivet-$RIVET_VERSION-x86_64-unknown-linux-gnu.tar.gz"
+          base="https://github.com/pulseengine/rivet/releases/download/$RIVET_VERSION"
+          curl -fsSL -o "$asset" "$base/$asset"
+          act=$(sha256sum "$asset" | awk '{print $1}')
+          test "$act" = "$RIVET_SHA256" || { echo "checksum mismatch for $asset: $act"; exit 1; }
+          tar xzf "$asset"
+          echo "$d/$(dirname "$(find . -name rivet -type f | head -1)")" >> "$GITHUB_PATH"
+      - name: rivet validate
+        run: |
+          rivet --version
+          rivet validate
+      - name: test markers
+        run: rivet coverage --tests

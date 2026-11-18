@@ -64,7 +64,31 @@ jobs:
 
 The action builds plant from its own source (the runner needs Rust, git, tar
 and bash), refuses to run under `pull_request_target`, and fails the step with
-plant's exit code. Pin it by commit SHA; there is no release yet.
+plant's exit code. Pin it by commit SHA.
+
+## plant guard
+
+`plant guard` checks that no fork pull request can reach a self-hosted
+runner: every `runs-on` must be a hosted image or the fail-closed same-repo
+form, every self-hosted label must be one the repository declares, and no
+self-hosted job may run under a trigger a fork can cause. It is the shared
+checker for pulseengine repositories, ported from relay's
+`check-selfhosted-fork-guard.rs`.
+
+```toml
+# plant-guard.toml
+fallback = "ubuntu-24.04"                            # default
+labels = ["self-hosted", "linux", "x64", "light"]
+
+[[exempt]]                     # holds only for push/schedule/workflow_dispatch/release
+workflow = "nightly.yml"
+reason = "schedule only"
+```
+
+```sh
+plant guard            # exit 0 ok, 1 violation or nothing compared, 2 could not read
+plant docs guard       # the full rules
+```
 
 ## Licence
 

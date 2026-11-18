@@ -58,8 +58,8 @@ artifacts:
     status: draft
     description: >
       Every self-hosted job in plant's CI and in the documented action usage
-      shall route fork pull requests to ubuntu-latest, and no self-hosted job
-      shall run under pull_request_target.
+      shall route fork pull requests to a GitHub-hosted image, and no
+      self-hosted job shall run under pull_request_target.
     links:
       - type: prevents-sec-hazard
         target: SH-1
@@ -102,3 +102,32 @@ artifacts:
     links:
       - type: prevents-sec-hazard
         target: SH-3
+
+  - id: SH-4
+    type: sec-hazard
+    title: A job is routed by a runner label nobody provisioned
+    status: draft
+    description: >
+      A runs-on or matrix runner names a label outside the organisation's
+      runner set (a typo, or a shell fragment such as loom#532's `}.$l.q{`).
+      The job then queues on no runner, so its gate never reports, or matches
+      a pool it was not meant for. Shape checks and actionlint pass it.
+    fields:
+      cia-impact: [integrity, availability]
+      severity: high
+    links:
+      - type: leads-to-sec-loss
+        target: SL-1
+
+  - id: SSC-4
+    type: sec-constraint
+    title: Self-hosted runner labels come from a declared set
+    status: draft
+    description: >
+      Every label in a self-hosted runner selection shall be one of the
+      labels the repository declares as provisioned, and a repository that
+      selects self-hosted runners without declaring that set shall fail the
+      check.
+    links:
+      - type: prevents-sec-hazard
+        target: SH-4
