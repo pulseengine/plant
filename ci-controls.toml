@@ -48,3 +48,10 @@ check = "Test"
 run = "cargo test --test selftest timeout_is_fail_and_kills_the_group"
 plant = "ci-controls/kill-shell-only"
 stderr_or_stdout_matches = 'survived the timeout'
+
+[[control]]
+id = "action-allows-prt"
+check = "Test"
+run = "cargo test --test action refuses_pull_request_target"
+plant = "ci-controls/action-allows-prt"
+stderr_or_stdout_matches = 'plant ran under pull_request_target'
