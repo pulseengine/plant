@@ -55,3 +55,17 @@ check = "Test"
 run = "cargo test --test action refuses_pull_request_target"
 plant = "ci-controls/action-allows-prt"
 stderr_or_stdout_matches = 'plant ran under pull_request_target'
+
+[[control]]
+id = "release-tag-mismatch"
+check = "Test"
+run = "cargo test --test release version_guard_rejects_a_mismatch"
+plant = "ci-controls/release-tag-mismatch"
+stderr_or_stdout_matches = 'tag v9\.9\.9 accepted'
+
+[[control]]
+id = "release-wrong-version"
+check = "Test"
+run = "cargo test --test release smoke_rejects_a_binary_of_another_version"
+plant = "ci-controls/release-wrong-version"
+stderr_or_stdout_matches = 'a binary of another version passed the smoke test'

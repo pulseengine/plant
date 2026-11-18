@@ -71,6 +71,18 @@ const PLANTS: &[(&str, &str, &str, &str)] = &[
         "if false; then",
     ),
     (
+        "release-tag-mismatch",
+        "scripts/release-check.sh",
+        "  [ \"$tag\" = \"v$v\" ] || die \"tag $tag does not name Cargo.toml's version $v\"",
+        "  true",
+    ),
+    (
+        "release-wrong-version",
+        "scripts/release-check.sh",
+        "  [ \"$got\" = \"plant ${tag#v}\" ] || die \"binary reports '$got', tag is $tag\"",
+        "  true",
+    ),
+    (
         "kill-shell-only",
         "src/runner.rs",
         "libc::kill(-pgid, libc::SIGKILL);",

@@ -74,3 +74,31 @@ artifacts:
     links:
       - type: prevents-sec-hazard
         target: SH-2
+
+  - id: SH-3
+    type: sec-hazard
+    title: A consumer runs a plant binary this repository did not build
+    status: draft
+    description: >
+      A release archive is replaced or mislabelled (a substituted binary, or
+      one that reports another version), and a consumer runs it on a runner
+      with the repository's checkout and token.
+    fields:
+      cia-impact: [integrity]
+      severity: high
+    links:
+      - type: leads-to-sec-loss
+        target: SL-1
+
+  - id: SSC-3
+    type: sec-constraint
+    title: Release artifacts are verifiable back to this repository's workflow
+    status: draft
+    description: >
+      Every release archive, the SBOM and the docs archive shall be listed in
+      a SHA256SUMS.txt signed keyless by the release workflow, the archives
+      shall carry SLSA provenance, and each packaged binary shall report the
+      tagged version before it is published.
+    links:
+      - type: prevents-sec-hazard
+        target: SH-3
