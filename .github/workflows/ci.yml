@@ -30,6 +30,12 @@ jobs:
     runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && fromJSON('["self-hosted","linux","x64","light"]') || 'ubuntu-24.04' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # The runner's default toolchain can change under us (1.97.0 arrived
+      # without clippy and reddened main): install what the steps need.
+      - uses: dtolnay/rust-toolchain@39008827e6b4319a349e9a42dfc90579dd25f1ca # stable, 2026-11-15
+        with:
+          toolchain: stable
+          components: rustfmt, clippy
       - name: fmt
         run: cargo fmt --all -- --check
       - name: clippy
@@ -43,6 +49,9 @@ jobs:
     runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && fromJSON('["self-hosted","linux","x64","light"]') || 'ubuntu-24.04' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dtolnay/rust-toolchain@39008827e6b4319a349e9a42dfc90579dd25f1ca # stable, 2026-11-15
+        with:
+          toolchain: stable
       # plant holds itself to its own rule, through its own GitHub Action: each
       # control plants a broken source file and needs the named self-test to go
       # red. Exit 1 on any fail-open control and on an empty manifest.
