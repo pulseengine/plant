@@ -1,7 +1,14 @@
 # plant manifest for pulseengine/sigil: an example, not used by sigil yet.
 #
-# Converts the embedded --self-test of verification/selfhosted-guard/check.py
-# into controls. Each plant adds one workflow the guard must reject, so the
+# Converts the embedded --self-test of sigil's fork guard into controls. Since
+# sigil#388 (8df6dcc) the guard that gates sigil's CI is the WASI component in
+# verification/selfhosted-guard, built for wasm32-wasip2 and run under
+# wasmtime, and check.py is its equivalence oracle. The controls run the
+# component, as sigil's "No fork PR reaches a self-hosted runner" job does;
+# bare-label-check-py runs check.py on the same plant as a cross-check.
+# Set CARGO_TARGET_DIR to a dedicated absolute directory so the scratch
+# copies share one build; the plants change only workflow files, never the
+# guard's source. Each plant adds one workflow the guard must reject, so the
 # check runs on the real repository (baseline green on sigil's own
 # workflows) and must turn red with the reason for that job, not some other
 # failure. Copy this file and ci-controls/ to the root of sigil to use it.
@@ -10,116 +17,126 @@
 [[control]]
 id = "bare-label"
 check = "fork guard"
-run = "python3 verification/selfhosted-guard/check.py ."
+run = "cargo build --locked --release --target wasm32-wasip2 --manifest-path verification/selfhosted-guard/Cargo.toml && wasmtime run --dir . \"${CARGO_TARGET_DIR:-target}/wasm32-wasip2/release/selfhosted-guard.wasm\" ."
 plant = "ci-controls/bare-label"
 stderr_or_stdout_matches = '''planted\.yml:planted: runs-on 'light' is neither'''
-timeout = 60
+timeout = 600
 
 # a label list without the word self-hosted
 [[control]]
 id = "label-list"
 check = "fork guard"
-run = "python3 verification/selfhosted-guard/check.py ."
+run = "cargo build --locked --release --target wasm32-wasip2 --manifest-path verification/selfhosted-guard/Cargo.toml && wasmtime run --dir . \"${CARGO_TARGET_DIR:-target}/wasm32-wasip2/release/selfhosted-guard.wasm\" ."
 plant = "ci-controls/label-list"
 stderr_or_stdout_matches = '''planted\.yml:planted: runs-on \['linux', 'light'\] is neither'''
-timeout = 60
+timeout = 600
 
 # a plain self-hosted label list
 [[control]]
 id = "self-hosted-list"
 check = "fork guard"
-run = "python3 verification/selfhosted-guard/check.py ."
+run = "cargo build --locked --release --target wasm32-wasip2 --manifest-path verification/selfhosted-guard/Cargo.toml && wasmtime run --dir . \"${CARGO_TARGET_DIR:-target}/wasm32-wasip2/release/selfhosted-guard.wasm\" ."
 plant = "ci-controls/self-hosted-list"
 stderr_or_stdout_matches = '''planted\.yml:planted: runs-on \['self-hosted''''
-timeout = 60
+timeout = 600
 
 # a runner group map
 [[control]]
 id = "runner-group"
 check = "fork guard"
-run = "python3 verification/selfhosted-guard/check.py ."
+run = "cargo build --locked --release --target wasm32-wasip2 --manifest-path verification/selfhosted-guard/Cargo.toml && wasmtime run --dir . \"${CARGO_TARGET_DIR:-target}/wasm32-wasip2/release/selfhosted-guard.wasm\" ."
 plant = "ci-controls/runner-group"
 stderr_or_stdout_matches = '''planted\.yml:planted: runs-on \{'group''''
-timeout = 60
+timeout = 600
 
 # the fail-open head.repo.fork form, which a deleted fork passes
 [[control]]
 id = "fail-open-fork-form"
 check = "fork guard"
-run = "python3 verification/selfhosted-guard/check.py ."
+run = "cargo build --locked --release --target wasm32-wasip2 --manifest-path verification/selfhosted-guard/Cargo.toml && wasmtime run --dir . \"${CARGO_TARGET_DIR:-target}/wasm32-wasip2/release/selfhosted-guard.wasm\" ."
 plant = "ci-controls/fail-open-fork-form"
 stderr_or_stdout_matches = '''planted\.yml:planted: runs-on .*head\.repo\.fork.* is neither'''
-timeout = 60
+timeout = 600
 
 # the fail-closed form with a self-hosted label as its fallback, so a fork
 # would still land on self-hosted
 [[control]]
 id = "label-fallback"
 check = "fork guard"
-run = "python3 verification/selfhosted-guard/check.py ."
+run = "cargo build --locked --release --target wasm32-wasip2 --manifest-path verification/selfhosted-guard/Cargo.toml && wasmtime run --dir . \"${CARGO_TARGET_DIR:-target}/wasm32-wasip2/release/selfhosted-guard.wasm\" ."
 plant = "ci-controls/label-fallback"
 stderr_or_stdout_matches = '''planted\.yml:planted: runs-on .*\|\| \\'light\\' \}\}' is neither'''
-timeout = 60
+timeout = 600
 
 # a matrix value that is a custom label
 [[control]]
 id = "matrix-label"
 check = "fork guard"
-run = "python3 verification/selfhosted-guard/check.py ."
+run = "cargo build --locked --release --target wasm32-wasip2 --manifest-path verification/selfhosted-guard/Cargo.toml && wasmtime run --dir . \"${CARGO_TARGET_DIR:-target}/wasm32-wasip2/release/selfhosted-guard.wasm\" ."
 plant = "ci-controls/matrix-label"
 stderr_or_stdout_matches = '''planted\.yml:planted: matrix\.os has a value that is not a hosted image'''
-timeout = 60
+timeout = 600
 
 # a matrix built from an expression
 [[control]]
 id = "matrix-expression"
 check = "fork guard"
-run = "python3 verification/selfhosted-guard/check.py ."
+run = "cargo build --locked --release --target wasm32-wasip2 --manifest-path verification/selfhosted-guard/Cargo.toml && wasmtime run --dir . \"${CARGO_TARGET_DIR:-target}/wasm32-wasip2/release/selfhosted-guard.wasm\" ."
 plant = "ci-controls/matrix-expression"
 stderr_or_stdout_matches = '''planted\.yml:planted: matrix\.os has a value that is not a hosted image: None'''
-timeout = 60
+timeout = 600
 
 # a runner taken from a repository variable
 [[control]]
 id = "runner-from-vars"
 check = "fork guard"
-run = "python3 verification/selfhosted-guard/check.py ."
+run = "cargo build --locked --release --target wasm32-wasip2 --manifest-path verification/selfhosted-guard/Cargo.toml && wasmtime run --dir . \"${CARGO_TARGET_DIR:-target}/wasm32-wasip2/release/selfhosted-guard.wasm\" ."
 plant = "ci-controls/runner-from-vars"
 stderr_or_stdout_matches = '''planted\.yml:planted: runs-on .*vars\.RUNNER.* is neither'''
-timeout = 60
+timeout = 600
 
 # the good form under pull_request_target
 [[control]]
 id = "pull-request-target"
 check = "fork guard"
-run = "python3 verification/selfhosted-guard/check.py ."
+run = "cargo build --locked --release --target wasm32-wasip2 --manifest-path verification/selfhosted-guard/Cargo.toml && wasmtime run --dir . \"${CARGO_TARGET_DIR:-target}/wasm32-wasip2/release/selfhosted-guard.wasm\" ."
 plant = "ci-controls/pull-request-target"
 stderr_or_stdout_matches = '''planted\.yml:planted: self-hosted under trigger\(s\) outside the allowlist: pull_request_target'''
-timeout = 60
+timeout = 600
 
 # the good form under workflow_run
 [[control]]
 id = "workflow-run"
 check = "fork guard"
-run = "python3 verification/selfhosted-guard/check.py ."
+run = "cargo build --locked --release --target wasm32-wasip2 --manifest-path verification/selfhosted-guard/Cargo.toml && wasmtime run --dir . \"${CARGO_TARGET_DIR:-target}/wasm32-wasip2/release/selfhosted-guard.wasm\" ."
 plant = "ci-controls/workflow-run"
 stderr_or_stdout_matches = '''planted\.yml:planted: self-hosted under trigger\(s\) outside the allowlist: workflow_run'''
-timeout = 60
+timeout = 600
 
 # the good form under workflow_call
 [[control]]
 id = "workflow-call"
 check = "fork guard"
-run = "python3 verification/selfhosted-guard/check.py ."
+run = "cargo build --locked --release --target wasm32-wasip2 --manifest-path verification/selfhosted-guard/Cargo.toml && wasmtime run --dir . \"${CARGO_TARGET_DIR:-target}/wasm32-wasip2/release/selfhosted-guard.wasm\" ."
 plant = "ci-controls/workflow-call"
 stderr_or_stdout_matches = '''planted\.yml:planted: self-hosted under trigger\(s\) outside the allowlist: workflow_call'''
-timeout = 60
+timeout = 600
 
 # no workflows at all: a pass must have compared something
 [[control]]
 id = "compared-nothing"
 check = "fork guard"
-run = "python3 verification/selfhosted-guard/check.py ."
+run = "cargo build --locked --release --target wasm32-wasip2 --manifest-path verification/selfhosted-guard/Cargo.toml && wasmtime run --dir . \"${CARGO_TARGET_DIR:-target}/wasm32-wasip2/release/selfhosted-guard.wasm\" ."
 plant = "ci-controls/compared-nothing"
 stderr_or_stdout_matches = '''no job uses the fail-closed form: this check compared nothing'''
+timeout = 600
+
+# Cross-check: check.py, now sigil's equivalence oracle, on the same plant
+# as bare-label. The two must agree; the component is what gates sigil's CI.
+[[control]]
+id = "bare-label-check-py"
+check = "fork guard"
+run = "python3 verification/selfhosted-guard/check.py ."
+plant = "ci-controls/bare-label"
+stderr_or_stdout_matches = '''planted\.yml:planted: runs-on 'light' is neither'''
 timeout = 60
