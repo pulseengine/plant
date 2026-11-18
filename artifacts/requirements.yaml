@@ -205,3 +205,23 @@ artifacts:
       - type: satisfies
         target: SSC-1
 
+  - id: REQ-014
+    type: requirement
+    title: plant's controls show a false skip by sieve as FAIL-OPEN
+    status: draft
+    description: >
+      examples/sieve shall hold a fixture with sieve classes, whose check
+      passes only when sieve selects nothing for a docs-only change. It
+      shall hold plants that must each turn that check red: a true input of
+      every class, reached through a #[path] module, an include_str!, a path
+      dependency and a crate's own source, plus a workflow file and an
+      unknown top-level path, which must run everything with a path reason.
+      A false skip by sieve then shows as FAIL-OPEN. The planted true inputs
+      shall be checked against cargo's dep-info, not against `sieve graph`,
+      and CI shall run the controls against a sieve release pinned by
+      digest.
+    fields: {priority: must, category: functional}
+    links:
+      - type: satisfies
+        target: SC-1
+

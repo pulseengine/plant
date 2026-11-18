@@ -68,6 +68,24 @@ jobs:
         with:
           format: json
 
+  sieve-controls:
+    name: sieve false-skip controls
+    # Fork PRs never reach self-hosted runners (fail-closed same-repo guard).
+    runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && fromJSON('["self-hosted","linux","x64","light"]') || 'ubuntu-24.04' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dtolnay/rust-toolchain@39008827e6b4319a349e9a42dfc90579dd25f1ca # stable, 2026-11-15
+        with:
+          toolchain: stable
+      # examples/sieve: a docs-only change must select nothing; each plant is a
+      # change that must select a class or run everything. A false skip by the
+      # pinned sieve release shows as FAIL-OPEN. tests/sieve_fixture.rs checks
+      # the planted true inputs against cargo's dep-info.
+      - name: plant on examples/sieve against the pinned sieve
+        run: |
+          cargo build --locked
+          scripts/sieve-controls.sh target/debug/plant
+
   rivet:
     name: rivet validate
     # Fork PRs never reach self-hosted runners (fail-closed same-repo guard).

@@ -1,0 +1,3 @@
+[workspace]
+members = ["core", "proofs"]
+resolver = "2"
