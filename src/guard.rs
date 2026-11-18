@@ -26,10 +26,15 @@
 //!
 //! Any self-hosted job in a workflow with a trigger outside TRUSTED is
 //! rejected: the form trusts every event that is not `pull_request`. A run
-//! that finds no self-hosted line fails: it compared nothing.
+//! that finds no self-hosted selection fails: it compared nothing.
 //!
-//! The parse is line-based and fails closed: a non-comment line containing
-//! `self-hosted` that is not an accepted shape is a violation.
+//! Unlike relay's line-based original, each workflow is parsed as YAML
+//! (yaml-rust2), so quoted keys, flow-style jobs, anchors and multi-line
+//! trigger lists read as GitHub reads them. Review of the line parser found
+//! 13 shapes that passed while routing a fork to self-hosted. The check
+//! still fails closed: a file that does not parse, a merge key, a job with
+//! neither runs-on nor a local `uses:`, a reusable workflow from another
+//! repository, and a matrix that cannot be read statically are violations.
 
 use std::collections::BTreeSet;
 use std::fmt;
@@ -37,6 +42,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
+use yaml_rust2::{Yaml, YamlLoader};
 
 const GUARD: &str = "(github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)";
 const MATRIX_GUARD: &str = "(github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository || !contains(matrix.runner, 'self-hosted'))";
@@ -188,22 +194,6 @@ fn runs_on_form_labels(v: &str, cfg: &Config) -> Option<Vec<String>> {
     list.iter().any(|l| l == "self-hosted").then_some(list)
 }
 
-/// Strips a trailing YAML comment that is outside quotes.
-fn strip_comment(line: &str) -> &str {
-    let (mut sq, mut dq) = (false, false);
-    for (i, c) in line.char_indices() {
-        match c {
-            '\'' if !dq => sq = !sq,
-            '"' if !sq => dq = !dq,
-            '#' if !sq && !dq && (i == 0 || line[..i].ends_with(char::is_whitespace)) => {
-                return &line[..i];
-            }
-            _ => {}
-        }
-    }
-    line
-}
-
 /// The key of `${{ matrix.<ident> }}` exactly, else None.
 fn plain_matrix_key(v: &str) -> Option<&str> {
     v.strip_prefix("${{ matrix.")
@@ -216,283 +206,312 @@ fn plain_matrix_key(v: &str) -> Option<&str> {
         })
 }
 
-/// A GitHub-hosted image name: ubuntu-*, macos-* or windows-*.
+/// A GitHub-hosted image name: ubuntu-latest, ubuntu-24.04, ubuntu-24.04-arm,
+/// ubuntu-slim, macos-latest, macos-15, macos-15-intel / -large / -xlarge,
+/// windows-latest, windows-2022, windows-11-arm. A self-hosted label that
+/// merely starts with ubuntu-, macos- or windows- is not one.
 fn is_hosted(v: &str) -> bool {
-    let v = v.trim().trim_matches(|c| c == '\'' || c == '"');
-    ["ubuntu-", "macos-", "windows-"].iter().any(|p| {
-        v.strip_prefix(p).is_some_and(|r| {
-            !r.is_empty()
-                && r.chars()
-                    .all(|c| c.is_ascii_alphanumeric() || c == '.' || c == '-')
-        })
-    })
-}
-
-/// Items of a YAML flow list `[a, "b"]`, else None.
-fn flow_items(v: &str) -> Option<Vec<String>> {
-    let inner = v.trim().strip_prefix('[')?.strip_suffix(']')?;
-    Some(
-        inner
-            .split(',')
-            .map(|i| i.trim().trim_matches(|c| c == '\'' || c == '"').to_string())
-            .filter(|i| !i.is_empty())
-            .collect(),
-    )
-}
-
-/// A bare runner label: a plain scalar, not an expression, list or map.
-fn bare_label(v: &str) -> Option<String> {
-    let v = v.trim().trim_matches(|c| c == '\'' || c == '"');
-    (!v.is_empty() && !v.contains(['$', '{', '}', '[', ']', ',', ' ', ':'])).then(|| v.to_string())
-}
-
-/// Every literal value written for matrix key `key` in a job's lines: inline
-/// (`key: v`, `- key: v`, `key: [a, b]`) or as a block list under `key:`.
-fn matrix_values(job_lines: &[&str], key: &str) -> Vec<String> {
-    let mut out = Vec::new();
-    let head = format!("{key}:");
-    for (i, raw) in job_lines.iter().enumerate() {
-        let t = strip_comment(raw).trim();
-        let t = t.strip_prefix("- ").unwrap_or(t);
-        let Some(rest) = t.strip_prefix(&head) else {
-            continue;
+    let parts: Vec<&str> = v.split('-').collect();
+    let num = |s: &str, dotted: bool| {
+        let mut it = s.split('.');
+        let ok = |p: Option<&str>| {
+            p.is_some_and(|p| !p.is_empty() && p.chars().all(|c| c.is_ascii_digit()))
         };
-        let rest = rest.trim();
-        if !rest.is_empty() {
-            out.push(rest.to_string());
-            continue;
+        match (it.next(), it.next(), it.next()) {
+            (a, None, None) => !dotted && ok(a),
+            (a, b, None) => dotted && ok(a) && ok(b),
+            _ => false,
         }
-        let ind = indent(raw);
-        for l in &job_lines[i + 1..] {
-            let lt = strip_comment(l).trim();
-            if lt.is_empty() {
-                continue;
-            }
-            if indent(l) <= ind && !lt.starts_with("- ") || indent(l) < ind {
-                break;
-            }
-            match lt.strip_prefix("- ") {
-                Some(item) if !item.contains(':') => out.push(item.trim().to_string()),
-                _ => break,
-            }
-        }
-    }
-    out
-}
-
-/// A `key: |` / `key: >-` style line, whose following deeper lines are text.
-fn is_block_scalar_head(t: &str) -> bool {
-    let t = t.trim_start_matches("- ");
-    match t.split_once(':') {
-        Some((_, v)) => {
-            let v = v.trim();
-            !v.is_empty() && (v.starts_with('|') || v.starts_with('>')) && v.len() <= 3
-        }
-        None => false,
+    };
+    match parts.as_slice() {
+        ["ubuntu", "latest" | "slim"] | ["macos", "latest"] | ["windows", "latest"] => true,
+        ["ubuntu", v] => num(v, true),
+        ["ubuntu", v, "arm"] => num(v, true),
+        ["macos", v] => num(v, false),
+        ["macos", v, "intel" | "large" | "xlarge"] => num(v, false),
+        ["windows", v] => num(v, false),
+        ["windows", v, "arm"] => num(v, false),
+        _ => false,
     }
 }
 
-/// A `name:` line (a workflow, job or step name) is display text: it cannot
-/// select a runner, so prose naming self-hosted there is not a site.
-fn is_name_line(t: &str) -> bool {
-    t.trim_start_matches("- ").starts_with("name:")
+/// A matrix value: a scalar or a list of scalars. Anything else is None.
+#[derive(Debug)]
+enum Val {
+    One(String),
+    List(Vec<String>),
 }
 
-fn indent(line: &str) -> usize {
-    line.len() - line.trim_start().len()
-}
-
-/// The workflow's trigger names, from a top-level `on:` (block map, flow list
-/// or scalar). Returns None when there is no `on:` key.
-fn triggers(lines: &[&str]) -> Option<Vec<String>> {
-    let i = lines.iter().position(|l| {
-        let t = strip_comment(l).trim_end();
-        indent(l) == 0 && (t == "on:" || t.starts_with("on: ") || t == "\"on\":" || t == "'on':")
-    })?;
-    let head = strip_comment(lines[i]).trim_end();
-    let inline = head.split_once(':').map(|x| x.1.trim()).unwrap_or("");
-    if !inline.is_empty() {
-        let inner = inline.trim_start_matches('[').trim_end_matches(']');
-        return Some(
-            inner
-                .split(',')
-                .map(|s| s.trim().to_string())
-                .filter(|s| !s.is_empty())
-                .collect(),
-        );
+fn scalar(y: &Yaml) -> Option<String> {
+    match y {
+        Yaml::String(s) | Yaml::Real(s) => Some(s.clone()),
+        Yaml::Integer(i) => Some(i.to_string()),
+        Yaml::Boolean(b) => Some(b.to_string()),
+        _ => None,
     }
+}
+
+fn val(y: &Yaml) -> Option<Val> {
+    match y {
+        Yaml::Array(a) => a
+            .iter()
+            .map(scalar)
+            .collect::<Option<Vec<_>>>()
+            .map(Val::List),
+        other => scalar(other).map(Val::One),
+    }
+}
+
+fn key<'a>(h: &'a yaml_rust2::yaml::Hash, k: &str) -> Option<&'a Yaml> {
+    h.get(&Yaml::String(k.to_string()))
+}
+
+/// Every value matrix key `k` can take in a job's `strategy.matrix`: the axis
+/// itself and every `include` entry naming it. None when the matrix cannot be
+/// read statically (an expression, a non-scalar value, an include entry that
+/// is not a mapping), because then its legs are not knowable here.
+fn matrix_values(job: &yaml_rust2::yaml::Hash, k: &str) -> Option<Vec<Val>> {
+    let strategy = match key(job, "strategy") {
+        Some(Yaml::Hash(h)) => h,
+        _ => return None,
+    };
+    let matrix = match key(strategy, "matrix") {
+        Some(Yaml::Hash(h)) => h,
+        _ => return None,
+    };
     let mut out = Vec::new();
-    let mut child: Option<usize> = None;
-    for l in &lines[i + 1..] {
-        let t = strip_comment(l).trim_end();
-        if t.trim().is_empty() {
-            continue;
+    match key(matrix, k) {
+        None => {}
+        Some(Yaml::Array(a)) => {
+            for item in a {
+                out.push(val(item)?);
+            }
         }
-        let ind = indent(l);
-        if ind == 0 {
-            break;
+        Some(_) => return None, // `os: ${{ ... }}` or a scalar axis
+    }
+    match key(matrix, "include") {
+        None => {}
+        Some(Yaml::Array(a)) => {
+            for entry in a {
+                let Yaml::Hash(e) = entry else { return None };
+                if let Some(v) = key(e, k) {
+                    out.push(val(v)?);
+                }
+            }
         }
-        let c = *child.get_or_insert(ind);
-        if ind == c {
-            let key = t.trim().trim_start_matches("- ");
-            let key = key.split(':').next().unwrap_or("").trim();
-            out.push(key.to_string());
-        }
+        Some(_) => return None, // computed include legs
     }
     Some(out)
+}
+
+/// The workflow's trigger names: `on` as a scalar, a list or a mapping.
+/// None when there is no `on` or it has another shape.
+fn triggers(doc: &yaml_rust2::yaml::Hash) -> Option<Vec<String>> {
+    match key(doc, "on")? {
+        Yaml::String(s) => Some(vec![s.clone()]),
+        Yaml::Array(a) => a.iter().map(|y| y.as_str().map(str::to_string)).collect(),
+        Yaml::Hash(h) => h.keys().map(|y| y.as_str().map(str::to_string)).collect(),
+        _ => None,
+    }
+}
+
+/// The 1-based line of job `id`'s `runs-on` (else its header) in `text`, for
+/// reporting only. The verdict never depends on it.
+fn locate(text: &str, id: &str, what: &str) -> Option<usize> {
+    let lines: Vec<&str> = text.lines().collect();
+    let in_jobs = lines.iter().position(|l| l.trim_end() == "jobs:")?;
+    let header = lines.iter().enumerate().skip(in_jobs + 1).find(|(_, l)| {
+        let t = l.trim_start();
+        let t = t
+            .strip_prefix('"')
+            .or_else(|| t.strip_prefix('\''))
+            .unwrap_or(t);
+        t.strip_prefix(id).is_some_and(|r| {
+            let r = r.trim_start_matches(['"', '\'']).trim_start();
+            r.starts_with(':')
+        })
+    })?;
+    let ind = header.1.len() - header.1.trim_start().len();
+    for (n, l) in lines.iter().enumerate().skip(header.0 + 1) {
+        let t = l.trim();
+        if !t.is_empty() && !t.starts_with('#') && l.len() - l.trim_start().len() <= ind {
+            break;
+        }
+        if t.trim_start_matches(['"', '\'']).starts_with(what) {
+            return Some(n + 1);
+        }
+    }
+    Some(header.0 + 1)
 }
 
 /// Checks one workflow's text. `seen` counts self-hosted selections compared.
 /// `exempt` is true when plant-guard.toml exempts this workflow.
 pub fn check_workflow(name: &str, text: &str, cfg: &Config, exempt: bool) -> Report {
-    let lines: Vec<&str> = text.lines().collect();
-    let matrix_form = cfg.matrix_form();
-    let mut bad = Vec::new();
-    let mut seen = 0;
-    let mut job_matrix_ok = false;
-    let mut jobs_indent: Option<usize> = None;
-    let mut job_indent: Option<usize> = None;
-    let mut job = String::from("?");
-    let mut job_span = (0usize, 0usize);
-    // Indent of an open block scalar (`run: |`, `body: >-`); its body is shell
-    // or prose, not workflow structure, and is skipped.
-    let mut block: Option<usize> = None;
-    let at = |n: usize, job: &str, reason: String| Violation {
-        file: name.to_string(),
-        line: Some(n + 1),
-        job: Some(job.to_string()),
-        reason,
-    };
-    let check_labels = |n: usize, job: &str, labels: &[String], bad: &mut Vec<Violation>| {
-        if let Some(set) = &cfg.labels {
-            for l in labels.iter().filter(|l| !set.contains(l.as_str())) {
-                bad.push(at(
-                    n,
-                    job,
-                    format!("runner label {l:?} is not in {CONFIG_FILE} labels"),
-                ));
-            }
-        }
-    };
-    for (n, raw) in lines.iter().enumerate() {
-        let code = strip_comment(raw);
-        let t = code.trim();
-        if t.is_empty() {
-            continue;
-        }
-        let ind = indent(raw);
-        if let Some(b) = block {
-            if ind > b {
-                continue;
-            }
-            block = None;
-        }
-        if is_block_scalar_head(t) {
-            block = Some(ind);
-        }
-        if ind == 0 {
-            jobs_indent = if t == "jobs:" { Some(0) } else { None };
-            job_indent = None;
-            continue;
-        }
-        if jobs_indent.is_some() {
-            let ji = *job_indent.get_or_insert(ind);
-            if ind == ji && t.ends_with(':') {
-                job = t.trim_end_matches(':').to_string();
-                let len = lines[n + 1..]
-                    .iter()
-                    .take_while(|l| strip_comment(l).trim().is_empty() || indent(l) > ji)
-                    .count();
-                job_span = (n + 1, n + 1 + len);
-                job_matrix_ok = lines[job_span.0..job_span.1]
-                    .iter()
-                    .any(|l| strip_comment(l).trim() == format!("runs-on: {matrix_form}"));
-                continue;
-            }
-        }
-        // Every runs-on is shape-checked, not only ones that spell
-        // `self-hosted`: a runner computed into needs.*.outputs, inputs, vars
-        // or github.* names no label here, yet can resolve to self-hosted.
-        let mut counted = false;
-        if let Some(v) = t.strip_prefix("runs-on:") {
-            let v = v.trim();
-            let job_lines = &lines[job_span.0..job_span.1];
-            let ok = if let Some(labels) = runs_on_form_labels(v, cfg) {
-                check_labels(n, &job, &labels, &mut bad);
-                true
-            } else if v == matrix_form {
-                let vals = matrix_values(job_lines, "runner");
-                !vals.is_empty()
-                    && vals.iter().all(|x| match flow_items(x) {
-                        Some(it) if it.iter().any(|i| i == "self-hosted") => {
-                            check_labels(n, &job, &it, &mut bad);
-                            true
-                        }
-                        Some(it) => it.iter().all(|i| is_hosted(i)),
-                        None => is_hosted(x),
-                    })
-            } else if let Some(key) = plain_matrix_key(v) {
-                let vals = matrix_values(job_lines, key);
-                !vals.is_empty()
-                    && vals.iter().all(|x| match flow_items(x) {
-                        Some(it) => !it.is_empty() && it.iter().all(|i| is_hosted(i)),
-                        None => is_hosted(x),
-                    })
-            } else if is_hosted(v) {
-                true
-            } else if exempt {
-                // An exempt workflow may name provisioned labels directly.
-                let labels = match flow_items(v) {
-                    Some(it) if !it.is_empty() && it.iter().all(|i| bare_label(i).is_some()) => {
-                        Some(it)
-                    }
-                    Some(_) => None,
-                    None => bare_label(v).map(|l| vec![l]),
-                };
-                match labels {
-                    Some(l) => {
-                        check_labels(n, &job, &l, &mut bad);
-                        seen += 1;
-                        counted = true;
-                        true
-                    }
-                    None => false,
-                }
-            } else {
-                false
-            };
-            if !ok {
-                bad.push(at(n, &job, "runs-on is not a hosted image, the fail-closed form, or a matrix whose every runner is a hosted image".into()));
-            }
-        }
-        if !t.contains("self-hosted") || is_name_line(t) {
-            continue;
-        }
-        if !counted {
-            seen += 1;
-        }
-        if t.starts_with("runs-on:") {
-            // Judged by the allowlist above.
-        } else if t.starts_with("runner:") || t.starts_with("- runner:") {
-            if !job_matrix_ok {
-                bad.push(at(n, &job, "self-hosted matrix runner in a job whose runs-on is not the fail-closed matrix form".into()));
-            }
-        } else {
-            bad.push(at(
-                n,
-                &job,
-                "self-hosted outside an accepted runs-on/runner shape".into(),
-            ));
-        }
-    }
     let whole = |reason: String| Violation {
         file: name.to_string(),
         line: None,
         job: None,
         reason,
     };
+    let docs = match YamlLoader::load_from_str(text) {
+        Ok(d) => d,
+        Err(e) => {
+            return Report {
+                seen: 0,
+                bad: vec![whole(format!(
+                    "cannot be read as YAML ({e}); not checked, so not passed"
+                ))],
+            }
+        }
+    };
+    let doc = match docs.as_slice() {
+        [Yaml::Hash(h)] => h,
+        _ => {
+            return Report {
+                seen: 0,
+                bad: vec![whole("is not a single YAML mapping".into())],
+            }
+        }
+    };
+    let matrix_form = cfg.matrix_form();
+    let mut bad = Vec::new();
+    let mut seen = 0;
+    let jobs = match key(doc, "jobs") {
+        None => None,
+        Some(Yaml::Hash(h)) => Some(h),
+        Some(_) => {
+            bad.push(whole("`jobs` is not a mapping".into()));
+            None
+        }
+    };
+    for (id, job) in jobs.into_iter().flatten() {
+        let Some(id) = id.as_str() else {
+            bad.push(whole("a job id is not a string".into()));
+            continue;
+        };
+        let at = |what: &str, reason: String| Violation {
+            file: name.to_string(),
+            line: locate(text, id, what),
+            job: Some(id.to_string()),
+            reason,
+        };
+        let Yaml::Hash(job) = job else {
+            bad.push(at(":", "job is not a mapping".into()));
+            continue;
+        };
+        if key(job, "<<").is_some() {
+            bad.push(at(
+                "<<",
+                "job uses a YAML merge key; its runner is not checked".into(),
+            ));
+            continue;
+        }
+        let check_labels = |labels: &[String], bad: &mut Vec<Violation>| {
+            if let Some(set) = &cfg.labels {
+                for l in labels.iter().filter(|l| !set.contains(l.as_str())) {
+                    bad.push(at(
+                        "runs-on",
+                        format!("runner label {l:?} is not in {CONFIG_FILE} labels"),
+                    ));
+                }
+            }
+        };
+        let runs_on = key(job, "runs-on");
+        if let Some(u) = key(job, "uses") {
+            match u.as_str() {
+                Some(p) if p.starts_with("./") && runs_on.is_none() => {} // checked as its own file
+                _ => bad.push(at(
+                    "uses",
+                    "job calls a reusable workflow outside this repository; the runners it selects are not visible here".into(),
+                )),
+            }
+            continue;
+        }
+        let Some(runs_on) = runs_on else {
+            bad.push(at(":", "job has no runs-on and no local `uses:`".into()));
+            continue;
+        };
+        // Matrix legs naming self-hosted: allowed only under the matrix form.
+        let runner_vals = matrix_values(job, "runner");
+        let self_hosted_legs = runner_vals
+            .iter()
+            .flatten()
+            .filter(|v| {
+                matches!(v, Val::List(l) if l.iter().any(|i| i == "self-hosted"))
+                    || matches!(v, Val::One(s) if s.contains("self-hosted"))
+            })
+            .count();
+        let ok = match runs_on {
+            Yaml::String(v) => {
+                if let Some(labels) = runs_on_form_labels(v, cfg) {
+                    seen += 1;
+                    check_labels(&labels, &mut bad);
+                    true
+                } else if *v == matrix_form {
+                    seen += 1 + self_hosted_legs;
+                    match &runner_vals {
+                        Some(vals) if !vals.is_empty() => vals.iter().all(|x| match x {
+                            Val::List(it) if it.iter().any(|i| i == "self-hosted") => {
+                                check_labels(it, &mut bad);
+                                true
+                            }
+                            Val::List(it) => !it.is_empty() && it.iter().all(|i| is_hosted(i)),
+                            Val::One(s) => is_hosted(s),
+                        }),
+                        _ => false,
+                    }
+                } else if let Some(k) = plain_matrix_key(v) {
+                    match matrix_values(job, k) {
+                        Some(vals) if !vals.is_empty() => vals.iter().all(|x| match x {
+                            Val::List(it) => !it.is_empty() && it.iter().all(|i| is_hosted(i)),
+                            Val::One(s) => is_hosted(s),
+                        }),
+                        _ => false,
+                    }
+                } else if is_hosted(v) {
+                    true
+                } else if exempt && !v.contains("${{") {
+                    seen += 1;
+                    check_labels(std::slice::from_ref(v), &mut bad);
+                    true
+                } else {
+                    false
+                }
+            }
+            Yaml::Array(a) if exempt => match a
+                .iter()
+                .map(|y| {
+                    y.as_str()
+                        .filter(|s| !s.contains("${{"))
+                        .map(str::to_string)
+                })
+                .collect::<Option<Vec<_>>>()
+            {
+                Some(l) if !l.is_empty() => {
+                    seen += 1;
+                    check_labels(&l, &mut bad);
+                    true
+                }
+                _ => false,
+            },
+            _ => false,
+        };
+        if !ok {
+            if matches!(runs_on, Yaml::String(s) if s.contains("self-hosted"))
+                || matches!(runs_on, Yaml::Array(a) if a.iter().any(|y| y.as_str() == Some("self-hosted")))
+            {
+                seen += 1;
+            }
+            bad.push(at("runs-on", "runs-on is not a hosted image, the fail-closed form, or a matrix whose every runner is a hosted image".into()));
+        }
+        let is_matrix_form = matches!(runs_on, Yaml::String(v) if *v == matrix_form);
+        if self_hosted_legs > 0 && !is_matrix_form {
+            seen += self_hosted_legs;
+            bad.push(at("runner", "self-hosted matrix runner in a job whose runs-on is not the fail-closed matrix form".into()));
+        }
+    }
     if seen > 0 || exempt {
-        match triggers(&lines) {
+        match triggers(doc) {
             None => bad.push(whole(
                 "has self-hosted jobs but no readable top-level `on:`".into(),
             )),
@@ -515,7 +534,7 @@ pub fn check_workflow(name: &str, text: &str, cfg: &Config, exempt: bool) -> Rep
                     .collect();
                 if exempt && !reachable.is_empty() {
                     bad.push(whole(format!(
-                        "exempt in {CONFIG_FILE}, but trigger(s) {} can be caused by a pull request; an exemption holds only under push, schedule and workflow_dispatch",
+                        "exempt in {CONFIG_FILE}, but trigger(s) {} can be caused by a pull request; an exemption holds only under push, schedule, workflow_dispatch and release",
                         reachable.join(", ")
                     )));
                 }
@@ -1149,6 +1168,98 @@ mod tests {
                 bad: vec![]
             }
         );
+    }
+
+    // Bypasses found by review of the line-based parser (PR #10). Each must
+    // be rejected; every one exited 0 before the structural parse.
+    // rivet: verifies REQ-011
+    #[test]
+    fn review_bypasses_are_rejected() {
+        let f = good("light");
+        let m = matrix_form();
+        let ok = format!("  ok:\n    runs-on: {f}\n");
+        let cases: Vec<(&str, String)> = vec![
+            ("quoted key", format!("on: [pull_request]\njobs:\n{ok}  evil:\n    \"runs-on\": light\n")),
+            ("space before colon", format!("on: [pull_request]\njobs:\n{ok}  evil:\n    runs-on : light\n")),
+            ("flow-style job", format!("on: [pull_request]\njobs:\n{ok}  evil: {{runs-on: light, steps: [{{run: id}}]}}\n")),
+            ("flow trigger list over two lines", format!("on: [push,\n  pull_request_target]\njobs:\n{ok}")),
+            ("block trigger list at indent 0", format!("on:\n- push\n- pull_request_target\njobs:\n{ok}")),
+            ("include adds a label leg", format!("on: [pull_request]\njobs:\n{ok}  evil:\n    strategy:\n      matrix:\n        os: [ubuntu-latest]\n        include: [{{os: light}}]\n    runs-on: ${{{{ matrix.os }}}}\n")),
+            ("computed include", format!("on: [pull_request]\njobs:\n{ok}  evil:\n    strategy:\n      matrix:\n        os: [ubuntu-latest]\n        include: ${{{{ fromJSON(needs.ok.outputs.extra) }}}}\n    runs-on: ${{{{ matrix.os }}}}\n")),
+            ("computed matrix with a decoy", format!("on: [pull_request]\njobs:\n{ok}  evil:\n    env:\n      os: ubuntu-latest\n    strategy:\n      matrix: ${{{{ fromJSON(needs.ok.outputs.m) }}}}\n    runs-on: ${{{{ matrix.os }}}}\n")),
+            ("flow-map include in the matrix form", format!("on: [pull_request]\njobs:\n  evil:\n    strategy:\n      matrix:\n        include:\n          - runner: [self-hosted, light]\n          - {{runner: [linux, light]}}\n    runs-on: {m}\n")),
+            ("anchored job header", "on: [pull_request]\njobs:\n  ok: &e\n    strategy:\n      matrix:\n        os: [ubuntu-latest]\n    runs-on: ${{ matrix.os }}\n  evil:\n    strategy:\n      matrix:\n        os: [light]\n    runs-on: ${{ matrix.os }}\n".to_string()),
+            ("remote reusable workflow", format!("on: [pull_request]\njobs:\n{ok}  evil:\n    uses: some-org/other/.github/workflows/sh.yml@main\n")),
+            ("self-hosted label with a hosted prefix", format!("on: [pull_request]\njobs:\n{ok}  evil:\n    runs-on: ubuntu-gpu\n")),
+            ("merge key", format!("on: [pull_request]\njobs:\n  base: &b\n    runs-on: {f}\n  evil:\n    <<: *b\n    runs-on: light\n")),
+            ("job without runs-on", format!("on: [pull_request]\njobs:\n{ok}  evil:\n    steps: []\n")),
+            ("duplicate runs-on", "on: [pull_request]\njobs:\n  evil:\n    runs-on: ubuntu-24.04\n    runs-on: light\n".to_string()),
+        ];
+        for (what, t) in &cases {
+            assert!(!check("t.yml", t).bad.is_empty(), "{what} passed:\n{t}");
+        }
+        for (what, on) in [
+            ("two-line flow list", "on: [push,\n  pull_request]"),
+            ("indent-0 list", "on:\n- push\n- pull_request"),
+        ] {
+            let t = format!("{on}\njobs:\n  a:\n    runs-on: [self-hosted, light]\n");
+            assert!(
+                !check_workflow("x.yml", &t, &cfg(), true).bad.is_empty(),
+                "exempt {what} held"
+            );
+        }
+    }
+
+    // rivet: verifies REQ-013
+    #[test]
+    fn review_false_positives_are_accepted() {
+        let t = "on:\n  push:\n    branches: [main]\n  \"schedule\":\n    - cron: '0 3 * * *'\njobs:\n  a:\n    runs-on: [self-hosted, light]\n";
+        assert_eq!(
+            check_workflow("n.yml", t, &cfg(), true),
+            Report {
+                seen: 1,
+                bad: vec![]
+            }
+        );
+        let t = format!(
+            "on: [pull_request]\njobs:\n  a:\n    strategy:\n      matrix:\n        include:\n          - runner:\n              - self-hosted\n              - light\n    runs-on: {}\n    steps:\n      - run: !!str |\n          echo self-hosted\n",
+            matrix_form()
+        );
+        assert!(
+            check("t.yml", &t).bad.is_empty(),
+            "{:?}",
+            check("t.yml", &t)
+        );
+    }
+
+    // rivet: verifies REQ-012
+    #[test]
+    fn hosted_image_names_are_exact() {
+        for h in [
+            "ubuntu-latest",
+            "ubuntu-24.04",
+            "ubuntu-24.04-arm",
+            "ubuntu-slim",
+            "macos-15",
+            "macos-15-intel",
+            "macos-14-large",
+            "windows-2022",
+            "windows-11-arm",
+            "windows-latest",
+        ] {
+            assert!(is_hosted(h), "{h}");
+        }
+        for h in [
+            "ubuntu-gpu",
+            "ubuntu-24",
+            "macos-15.1",
+            "windows-x",
+            "ubuntu-24.04-gpu",
+            "ubuntu-",
+            "light",
+        ] {
+            assert!(!is_hosted(h), "{h}");
+        }
     }
 
     struct TempDir(PathBuf);

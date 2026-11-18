@@ -151,8 +151,10 @@ artifacts:
       other line naming self-hosted is a matrix runner under the matrix form;
       and no workflow with a self-hosted job has a trigger outside push,
       pull_request, schedule, workflow_dispatch and merge_group. It shall fail
-      when it finds no self-hosted line (compared nothing) and exit 2 when the
-      workflows or the config cannot be read. Ported from relay's
+      when it finds no self-hosted selection (compared nothing), when a
+      workflow does not parse as YAML, when a job has neither runs-on nor a
+      local `uses:`, or calls a reusable workflow from another repository,
+      and exit 2 when the workflows or the config cannot be read. Ported from relay's
       scripts/check-selfhosted-fork-guard.rs (relay f852816).
     fields: {priority: must, category: functional}
     links:

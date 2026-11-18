@@ -102,12 +102,20 @@ Accepted runs-on values:
   - its matrix variant, with matrix.runner values that are hosted images or
     label lists containing "self-hosted";
   - ${{ matrix.<key> }} whose every literal value is a hosted image.
+Hosted images are exact names (ubuntu-24.04, ubuntu-24.04-arm, macos-15,
+windows-2022, the -latest aliases, ...); `ubuntu-gpu` is a label, not an image.
 Everything else fails: plain label lists, bare labels, the fail-open
 `head.repo.fork && ... ||` form, swapped branches, runners from needs, inputs,
-vars or github.*, block-list or map runs-on, and self-hosted anywhere else
-(except a `name:`). A self-hosted job under a trigger other than push,
-pull_request, schedule, workflow_dispatch, merge_group or release fails. A run
-that finds no self-hosted line fails: it compared nothing.
+vars or github.*, block-list or map runs-on, a matrix or include computed at
+run time, a self-hosted matrix runner outside the matrix form, a job with no
+runs-on, a merge key, a reusable workflow from another repository (`uses:`
+not starting with ./), and a file that does not parse as YAML. A self-hosted
+job under a trigger other than push, pull_request, schedule,
+workflow_dispatch, merge_group or release fails. A run that finds no
+self-hosted selection fails: it compared nothing.
+
+merge_group is trusted as in relay's original: code from a fork runs on
+self-hosted once a maintainer queues the pull request.
 
 Config, DIR/plant-guard.toml (or --config):
   fallback = "ubuntu-24.04"            # the hosted image a fork falls back to
