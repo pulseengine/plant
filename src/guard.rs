@@ -36,12 +36,13 @@
 //! neither runs-on nor a local `uses:`, a reusable workflow from another
 //! repository, and a matrix that cannot be read statically are violations.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 use std::fs;
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
+use yaml_rust2::parser::{Event, EventReceiver, Parser};
 use yaml_rust2::{Yaml, YamlLoader};
 
 const GUARD: &str = "(github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)";
@@ -262,6 +263,97 @@ fn val(y: &Yaml) -> Option<Val> {
     }
 }
 
+/// The largest workflow plant guard reads, and the most nodes it lets the
+/// document expand to once aliases are resolved. Larger inputs are
+/// violations: an alias bomb must not take the checker down.
+const MAX_BYTES: usize = 1 << 20;
+const MAX_NODES: u64 = 200_000;
+
+/// Counts the nodes a document expands to, without expanding aliases.
+#[derive(Default)]
+struct NodeBudget {
+    frames: Vec<(usize, u64)>,
+    anchors: BTreeMap<usize, u64>,
+    total: u64,
+}
+
+impl NodeBudget {
+    fn add(&mut self, n: u64) {
+        match self.frames.last_mut() {
+            Some(f) => f.1 = f.1.saturating_add(n),
+            None => self.total = self.total.saturating_add(n),
+        }
+    }
+}
+
+impl EventReceiver for NodeBudget {
+    fn on_event(&mut self, ev: Event) {
+        match ev {
+            Event::Scalar(_, _, anchor, _) => {
+                if anchor != 0 {
+                    self.anchors.insert(anchor, 1);
+                }
+                self.add(1);
+            }
+            Event::SequenceStart(anchor, _) | Event::MappingStart(anchor, _) => {
+                self.frames.push((anchor, 1))
+            }
+            Event::SequenceEnd | Event::MappingEnd => {
+                if let Some((anchor, n)) = self.frames.pop() {
+                    if anchor != 0 {
+                        self.anchors.insert(anchor, n);
+                    }
+                    self.add(n);
+                }
+            }
+            Event::Alias(id) => {
+                let n = self.anchors.get(&id).copied().unwrap_or(1);
+                self.add(n);
+            }
+            _ => {}
+        }
+    }
+}
+
+/// Nodes the text expands to, or None when it does not parse.
+fn expanded_nodes(text: &str) -> Option<u64> {
+    let mut b = NodeBudget::default();
+    Parser::new_from_str(text).load(&mut b, true).ok()?;
+    Some(b.total)
+}
+
+/// True when a mapping anywhere in `y` has a `<<` merge key. yaml-rust2 does
+/// not apply merge keys, so a merged value would be invisible here.
+fn has_merge_key(y: &Yaml) -> bool {
+    match y {
+        Yaml::Hash(h) => h
+            .iter()
+            .any(|(k, v)| k.as_str() == Some("<<") || has_merge_key(v)),
+        Yaml::Array(a) => a.iter().any(has_merge_key),
+        _ => false,
+    }
+}
+
+/// Keys that steer runner selection. GitHub may read workflow keys without
+/// regard to case, so a key that differs from one of these only by case is a
+/// violation rather than an unread key.
+const KEYWORDS: &[&str] = &[
+    "on", "jobs", "runs-on", "uses", "strategy", "matrix", "include", "exclude",
+];
+
+/// Keys of `h` that spell a KEYWORD in another case, or are not strings.
+fn case_variants(h: &yaml_rust2::yaml::Hash) -> Vec<String> {
+    h.keys()
+        .filter_map(|k| match k.as_str() {
+            Some(s) => KEYWORDS
+                .iter()
+                .any(|w| s != *w && s.eq_ignore_ascii_case(w))
+                .then(|| s.to_string()),
+            None => Some(format!("{k:?}")),
+        })
+        .collect()
+}
+
 fn key<'a>(h: &'a yaml_rust2::yaml::Hash, k: &str) -> Option<&'a Yaml> {
     h.get(&Yaml::String(k.to_string()))
 }
@@ -279,6 +371,9 @@ fn matrix_values(job: &yaml_rust2::yaml::Hash, k: &str) -> Option<Vec<Val>> {
         Some(Yaml::Hash(h)) => h,
         _ => return None,
     };
+    if !case_variants(strategy).is_empty() || !case_variants(matrix).is_empty() {
+        return None;
+    }
     let mut out = Vec::new();
     match key(matrix, k) {
         None => {}
@@ -353,6 +448,17 @@ pub fn check_workflow(name: &str, text: &str, cfg: &Config, exempt: bool) -> Rep
         job: None,
         reason,
     };
+    if text.len() > MAX_BYTES {
+        return Report {
+            seen: 0,
+            bad: vec![whole(format!(
+                "is larger than {MAX_BYTES} bytes; not checked, so not passed"
+            ))],
+        };
+    }
+    if expanded_nodes(text).is_some_and(|n| n > MAX_NODES) {
+        return Report { seen: 0, bad: vec![whole(format!("expands to more than {MAX_NODES} YAML nodes through aliases; not checked, so not passed"))] };
+    }
     let docs = match YamlLoader::load_from_str(text) {
         Ok(d) => d,
         Err(e) => {
@@ -373,9 +479,24 @@ pub fn check_workflow(name: &str, text: &str, cfg: &Config, exempt: bool) -> Rep
             }
         }
     };
+    if has_merge_key(&docs[0]) {
+        return Report {
+            seen: 0,
+            bad: vec![whole(
+                "uses a YAML merge key (<<); merged values are not checked, so not passed".into(),
+            )],
+        };
+    }
     let matrix_form = cfg.matrix_form();
     let mut bad = Vec::new();
     let mut seen = 0;
+    let odd = case_variants(doc);
+    if !odd.is_empty() {
+        bad.push(whole(format!(
+            "top-level key(s) {} differ from a workflow keyword only by case",
+            odd.join(", ")
+        )));
+    }
     let jobs = match key(doc, "jobs") {
         None => None,
         Some(Yaml::Hash(h)) => Some(h),
@@ -399,10 +520,14 @@ pub fn check_workflow(name: &str, text: &str, cfg: &Config, exempt: bool) -> Rep
             bad.push(at(":", "job is not a mapping".into()));
             continue;
         };
-        if key(job, "<<").is_some() {
+        let odd = case_variants(job);
+        if !odd.is_empty() {
             bad.push(at(
-                "<<",
-                "job uses a YAML merge key; its runner is not checked".into(),
+                ":",
+                format!(
+                    "key(s) {} differ from a workflow keyword only by case",
+                    odd.join(", ")
+                ),
             ));
             continue;
         }
@@ -1193,6 +1318,12 @@ mod tests {
             ("self-hosted label with a hosted prefix", format!("on: [pull_request]\njobs:\n{ok}  evil:\n    runs-on: ubuntu-gpu\n")),
             ("merge key", format!("on: [pull_request]\njobs:\n  base: &b\n    runs-on: {f}\n  evil:\n    <<: *b\n    runs-on: light\n")),
             ("job without runs-on", format!("on: [pull_request]\njobs:\n{ok}  evil:\n    steps: []\n")),
+            ("case variant of runs-on", format!("on: [pull_request]\njobs:\n{ok}  evil:\n    Runs-On: light\n")),
+            ("case variant of include", format!("on: [pull_request]\njobs:\n{ok}  evil:\n    strategy:\n      matrix:\n        os: [ubuntu-latest]\n        Include: [{{os: light}}]\n    runs-on: ${{{{ matrix.os }}}}\n")),
+            ("case variant of on", format!("On: [pull_request_target]\njobs:\n{ok}")),
+            ("merge key in an include entry", format!("on: [pull_request]\njobs:\n{ok}  evil:\n    strategy:\n      matrix:\n        os: [ubuntu-latest]\n        include:\n          - <<: {{os: light}}\n    runs-on: ${{{{ matrix.os }}}}\n")),
+            ("merge key in strategy", format!("on: [pull_request]\njobs:\n{ok}  evil:\n    strategy: {{<<: {{matrix: {{os: [light]}}}}, matrix: {{os: [ubuntu-latest]}}}}\n    runs-on: ${{{{ matrix.os }}}}\n")),
+            ("boolean top-level key", format!("true: [pull_request_target]\non: [push]\njobs:\n{ok}")),
             ("duplicate runs-on", "on: [pull_request]\njobs:\n  evil:\n    runs-on: ubuntu-24.04\n    runs-on: light\n".to_string()),
         ];
         for (what, t) in &cases {
@@ -1208,6 +1339,24 @@ mod tests {
                 "exempt {what} held"
             );
         }
+    }
+
+    // rivet: verifies REQ-011
+    #[test]
+    fn an_alias_bomb_is_a_violation_not_a_crash() {
+        let mut t = String::from("on: [push]\na0: &a0 [x, x, x, x, x, x, x, x, x]\n");
+        for i in 1..10 {
+            let p = i - 1;
+            t.push_str(&format!(
+                "a{i}: &a{i} [*a{p}, *a{p}, *a{p}, *a{p}, *a{p}, *a{p}, *a{p}, *a{p}, *a{p}]\n"
+            ));
+        }
+        t.push_str(&format!("jobs:\n  a:\n    runs-on: {}\n", good("light")));
+        let r = check("t.yml", &t);
+        assert_eq!(r.bad.len(), 1, "{r:?}");
+        assert!(r.bad[0].reason.contains("expands to more than"), "{r:?}");
+        let big = format!("on: [push]\n#{}\n", "x".repeat(MAX_BYTES));
+        assert!(check("t.yml", &big).bad[0].reason.contains("larger than"));
     }
 
     // rivet: verifies REQ-013
