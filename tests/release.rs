@@ -30,8 +30,12 @@ fn tmp(name: &str) -> Tmp {
 }
 
 fn check(args: &[&str], env: &[(&str, &Path)]) -> Output {
+    check_in(root(), args, env)
+}
+
+fn check_in(cwd: &Path, args: &[&str], env: &[(&str, &Path)]) -> Output {
     let mut c = Command::new(root().join("scripts/release-check.sh"));
-    c.args(args).current_dir(root());
+    c.args(args).current_dir(cwd);
     for (k, v) in env {
         c.env(k, v);
     }
@@ -62,6 +66,17 @@ fn version_guard_rejects_a_mismatch() {
 #[test]
 fn smoke_accepts_the_built_binary() {
     let out = check(&["smoke", env!("CARGO_BIN_EXE_plant"), &tag()], &[]);
+    assert_eq!(out.status.code(), Some(0), "{out:?}");
+}
+
+// release.yml passes the extracted archive as `smoke/plant`, a relative path.
+// rivet: verifies REQ-010
+#[test]
+fn smoke_accepts_a_relative_path() {
+    let t = tmp("rel");
+    fs::create_dir_all(t.0.join("smoke")).unwrap();
+    fs::copy(env!("CARGO_BIN_EXE_plant"), t.0.join("smoke/plant")).unwrap();
+    let out = check_in(&t.0, &["smoke", "smoke/plant", &tag()], &[]);
     assert_eq!(out.status.code(), Some(0), "{out:?}");
 }
 

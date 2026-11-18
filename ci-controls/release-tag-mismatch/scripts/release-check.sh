@@ -25,6 +25,8 @@ version_guard() {
 
 smoke() {
   local bin=$1 tag=$2 got rc
+  # The fixture runs in a temp dir: a relative path would no longer resolve.
+  case $bin in /*) ;; *) bin="$PWD/$bin" ;; esac
   got=$("$bin" --version) || die "$bin --version failed"
   [ "$got" = "plant ${tag#v}" ] || die "binary reports '$got', tag is $tag"
   "$bin" --help >/dev/null || die "--help did not exit 0"
@@ -33,8 +35,8 @@ smoke() {
 
   # Both verdicts, on a two-control fixture: a check that notices its plant
   # (PASS, exit 0 alone) and one that ignores it (FAIL-OPEN, exit 1).
-  local t; t=$(mktemp -d)
-  trap 'rm -rf "$t"' RETURN
+  t=$(mktemp -d)
+  trap 'rm -rf "$t"' EXIT
   (
     cd "$t"
     git init -q

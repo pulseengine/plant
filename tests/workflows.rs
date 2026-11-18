@@ -6,7 +6,7 @@ use std::path::Path;
 
 const GUARD: &str = "runs-on: ${{ (github.event_name != 'pull_request' || \
 github.event.pull_request.head.repo.full_name == github.repository) && \
-fromJSON('[\"self-hosted\",\"linux\",\"x64\",\"light\"]') || 'ubuntu-latest' }}";
+fromJSON('[\"self-hosted\",\"linux\",\"x64\",\"light\"]') || 'ubuntu-24.04' }}";
 
 // rivet: verifies REQ-008
 #[test]
@@ -92,11 +92,12 @@ fn release_signs_what_it_publishes() {
         "scripts/release-check.sh version-guard",
         "scripts/release-check.sh smoke",
         "cargo cyclonedx",
+        "plant.cdx.json \"release-assets/",
         "-docs.tar.gz\" -C docs-out",
+        "> release-assets/build-env.txt",
         "sha256sum ./* > SHA256SUMS.txt",
         "actions/attest-build-provenance@",
         "cosign sign-blob",
-        "build-env.txt",
         "gh release create",
     ];
     let mut at = 0;
@@ -106,7 +107,24 @@ fn release_signs_what_it_publishes() {
             .unwrap_or_else(|| panic!("release.yml: {step:?} missing or out of order"));
         at += i + step.len();
     }
+    // Write access exists only in create-release; everything else, the SBOM
+    // tool included, runs with the read-only default.
+    assert!(
+        text.contains("\npermissions:\n  contents: read\n"),
+        "release.yml: the top-level permissions are not read-only"
+    );
+    let publish = text
+        .find("\n  create-release:\n")
+        .expect("no create-release job");
     for perm in ["contents: write", "id-token: write", "attestations: write"] {
-        assert!(text.contains(perm), "release.yml lacks {perm}");
+        let hits: Vec<usize> = text.match_indices(perm).map(|(i, _)| i).collect();
+        assert!(
+            hits.len() == 1 && hits[0] > publish,
+            "release.yml: {perm} must appear once, inside create-release"
+        );
     }
+    assert!(
+        !text.contains("--clobber"),
+        "release.yml overwrites published assets"
+    );
 }
