@@ -8,6 +8,7 @@ artifacts:
       plant shall apply the verdict rules of docs/DESIGN.md: a control fails on
       a green planted run, a red baseline, a timeout, exit 126/127, a regex
       mismatch, a missing or empty plant, or an invalid delete entry.
+    release: v0.1.0
     fields: {priority: must, category: functional}
     links:
       - type: constraint-satisfies
@@ -23,6 +24,7 @@ artifacts:
       plant shall exit 0 when every control passes, 1 when any control fails or
       none ran, and 2 when it cannot run (bad manifest, no git, no commit,
       unknown --only id).
+    release: v0.1.0
     fields: {priority: must, category: interface}
     links:
       - type: constraint-satisfies
@@ -35,6 +37,7 @@ artifacts:
     description: >
       plant shall reject unknown keys, duplicate ids, wrong types, a bad regex,
       expect values other than "fail", and plant paths escaping the root.
+    release: v0.1.0
     fields: {priority: must, category: interface}
     links:
       - type: constraint-satisfies
@@ -50,6 +53,7 @@ artifacts:
       plant shall export HEAD once, copy it per run, reset it between baseline
       and planted run, overlay the plant from the working tree, apply delete
       lists inside the root only, and remove all scratch on exit.
+    release: v0.1.0
     fields: {priority: must, category: functional}
     links:
       - type: constraint-satisfies
@@ -63,6 +67,7 @@ artifacts:
     type: requirement
     title: Timeouts kill the whole process group
     status: draft
+    release: v0.1.0
     fields: {priority: must, category: functional}
     links:
       - type: constraint-satisfies
@@ -76,6 +81,7 @@ artifacts:
       plant shall print one PASS/FAIL line per control with its reason and the
       output tail for failures, a summary, and the same data with --format
       json; --only ID runs one control.
+    release: v0.1.0
     fields: {priority: must, category: interface}
     links:
       - type: constraint-satisfies
@@ -89,6 +95,7 @@ artifacts:
       plant's CI shall run plant on its own ci-controls.toml and its tests
       shall plant fail-open, red-baseline, missing-plant, timeout and
       empty-manifest cases, each expected red.
+    release: v0.1.0
     fields: {priority: must, category: non-functional}
     links:
       - type: constraint-satisfies
@@ -100,6 +107,7 @@ artifacts:
     type: requirement
     title: CI and action never expose self-hosted runners to forks
     status: draft
+    release: v0.1.0
     fields: {priority: must, category: constraint}
     links:
       - type: satisfies
@@ -114,6 +122,7 @@ artifacts:
       manifest, refuses to run under pull_request_target, passes every input
       to its scripts only through the environment, and fails the step with
       plant's exit code.
+    release: v0.1.0
     fields: {priority: must, category: interface}
     links:
       - type: satisfies
@@ -136,6 +145,7 @@ artifacts:
       provenance to the archives. It shall build, attest and sign only in a
       run whose ref is a v* tag, so the signing identity is always
       release.yml@refs/tags/<tag>.
+    release: v0.1.0
     fields: {priority: must, category: interface}
     links:
       - type: satisfies
@@ -158,6 +168,7 @@ artifacts:
       local `uses:`, or calls a reusable workflow from another repository,
       and exit 2 when the workflows or the config cannot be read. Ported from relay's
       scripts/check-selfhosted-fork-guard.rs (relay f852816).
+    release: v0.2.0
     fields: {priority: must, category: functional}
     links:
       - type: satisfies
@@ -172,6 +183,7 @@ artifacts:
       and fail on any label in a self-hosted fromJSON list, a matrix runner
       list or an exempt workflow's runs-on that is not in that set. A
       self-hosted line with no declared label set fails.
+    release: v0.2.0
     fields: {priority: must, category: functional}
     links:
       - type: satisfies
@@ -187,6 +199,7 @@ artifacts:
       every trigger of that workflow is schedule, workflow_dispatch or push;
       otherwise the exemption itself is a violation. An exemption naming a
       workflow that does not exist is a violation. Labels are still checked.
+    release: v0.2.0
     fields: {priority: must, category: functional}
     links:
       - type: satisfies
