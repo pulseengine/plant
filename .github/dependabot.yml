@@ -1,0 +1,33 @@
+version: 2
+groups:
+  wasm-tools-family:
+    patterns:
+      - wasmparser
+      - wasm-encoder
+      - wasmprinter
+      - wit-component
+      - wit-parser
+      - wasm-metadata
+      - wat
+      - walrus
+  wasmtime:
+    patterns:
+      - wasmtime
+      - wasmtime-*
+  github-actions-all:
+    package-ecosystem: github-actions
+    patterns:
+      - '*'
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    labels:
+      - dependencies
+  - package-ecosystem: cargo
+    directory: /
+    schedule:
+      interval: weekly
+    labels:
+      - dependencies
