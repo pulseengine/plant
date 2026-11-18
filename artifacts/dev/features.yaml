@@ -5,6 +5,7 @@ artifacts:
     title: Strict manifest parsing
     status: implemented
     description: src/manifest.rs reads ci-controls.toml and refuses anything it does not understand.
+    release: v0.1.0
     fields:
       phase: phase-1
       acceptance-criteria:
@@ -21,6 +22,7 @@ artifacts:
       src/scratch.rs exports HEAD with git archive, copies it per run, overlays
       the plant from the working tree, applies delete lists, and refuses paths
       that escape the root or go through a symlink.
+    release: v0.1.0
     fields:
       phase: phase-1
       acceptance-criteria:
@@ -37,6 +39,7 @@ artifacts:
     description: >
       src/runner.rs runs /bin/sh -c in its own process group and kills the
       whole group on timeout and when the run ends.
+    release: v0.1.0
     fields:
       phase: phase-1
       acceptance-criteria:
@@ -50,6 +53,7 @@ artifacts:
     title: Verdict rules and exit codes
     status: implemented
     description: src/verdict.rs holds the verdict rules of docs/DESIGN.md as pure functions.
+    release: v0.1.0
     fields:
       phase: phase-1
     links:
@@ -62,6 +66,7 @@ artifacts:
     type: feature
     title: Text and JSON reports, --only, docs command
     status: implemented
+    release: v0.1.0
     fields:
       phase: phase-1
     links:
@@ -77,6 +82,7 @@ artifacts:
       missing-plant, timeout, empty-manifest, kill-shell-only); the CI job
       "plant self-controls" runs plant on it and needs all six red in the
       named test.
+    release: v0.1.0
     fields:
       phase: phase-1
     links:
@@ -90,6 +96,7 @@ artifacts:
     description: >
       Every job in .github/workflows/ci.yml uses the fail-closed fork guard;
       no workflow uses pull_request_target.
+    release: v0.1.0
     fields:
       phase: phase-1
     links:
@@ -181,6 +188,7 @@ artifacts:
       action/run.sh. plant's CI job "plant self-controls" uses it (uses: ./),
       and the self-control action-allows-prt plants a run.sh without the
       pull_request_target refusal.
+    release: v0.1.0
     fields:
       phase: phase-1
       acceptance-criteria:
@@ -200,6 +208,7 @@ artifacts:
       docs archive inside the cosign-signed SHA256SUMS.txt, SLSA provenance,
       build-env.txt. Self-controls release-tag-mismatch and
       release-wrong-version plant a release-check.sh whose gates always pass.
+    release: v0.1.0
     fields:
       phase: phase-1
       acceptance-criteria:
@@ -219,6 +228,7 @@ artifacts:
       provisioned labels, exemptions), text and JSON output, relay's 19 unit
       tests plus label and exemption tests, and planted negative controls in
       plant's own ci-controls.toml: an unguarded site and a bad label.
+    release: v0.2.0
     fields:
       phase: phase-2
       acceptance-criteria:
