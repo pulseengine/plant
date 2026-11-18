@@ -122,3 +122,20 @@ artifacts:
         target: SSC-2
       - type: constraint-satisfies
         target: SC-2
+
+  - id: REQ-010
+    type: requirement
+    title: Signed, attested release artifacts that report their own version
+    status: draft
+    description: >
+      plant's release workflow shall refuse a tag that does not name the
+      crate version, smoke-test every packaged binary (its version equals the
+      tag, and it gives both a PASS and a FAIL-OPEN verdict on a fixture),
+      put the archives, a CycloneDX SBOM and a docs archive into
+      SHA256SUMS.txt before signing it with cosign keyless, and attach SLSA
+      provenance to the archives.
+    fields: {priority: must, category: interface}
+    links:
+      - type: satisfies
+        target: SSC-3
+

@@ -189,3 +189,24 @@ artifacts:
     links:
       - type: satisfies
         target: REQ-009
+
+  - id: FEAT-009
+    type: feature
+    title: Release pipeline (release.yml + scripts/release-check.sh)
+    status: implemented
+    description: >
+      Tag-triggered release on GitHub-hosted runners: version guard, static
+      musl and darwin builds, a smoke test of each packaged archive, SBOM and
+      docs archive inside the cosign-signed SHA256SUMS.txt, SLSA provenance,
+      build-env.txt. Self-controls release-tag-mismatch and
+      release-wrong-version plant a release-check.sh whose gates always pass.
+    fields:
+      phase: phase-1
+      acceptance-criteria:
+        - a tag that does not name Cargo.toml's version stops the release before any build
+        - a packaged binary reporting another version stops the release
+        - the SBOM and docs archive are listed in the signed SHA256SUMS.txt
+    links:
+      - type: satisfies
+        target: REQ-010
+

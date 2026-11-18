@@ -52,7 +52,7 @@ jobs:
   ci-controls:
     # plant runs the manifest's commands: keep fork pull requests off
     # self-hosted runners.
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: pulseengine/plant@<commit-sha>
