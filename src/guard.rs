@@ -263,13 +263,15 @@ fn val(y: &Yaml) -> Option<Val> {
     }
 }
 
-/// The largest workflow plant guard reads, and the most nodes it lets the
-/// document expand to once aliases are resolved. Larger inputs are
-/// violations: an alias bomb must not take the checker down.
+/// The largest workflow plant guard reads, and the most it lets the document
+/// expand to once aliases are resolved, in bytes (each node counts its scalar
+/// length plus one). Larger inputs are violations: an alias bomb, of many
+/// nodes or of one long scalar aliased many times, must not take the checker
+/// down.
 const MAX_BYTES: usize = 1 << 20;
-const MAX_NODES: u64 = 200_000;
+const MAX_EXPANDED: u64 = 8 << 20;
 
-/// Counts the nodes a document expands to, without expanding aliases.
+/// Counts what a document expands to, without expanding aliases.
 #[derive(Default)]
 struct NodeBudget {
     frames: Vec<(usize, u64)>,
@@ -289,11 +291,12 @@ impl NodeBudget {
 impl EventReceiver for NodeBudget {
     fn on_event(&mut self, ev: Event) {
         match ev {
-            Event::Scalar(_, _, anchor, _) => {
+            Event::Scalar(v, _, anchor, _) => {
+                let n = 1 + v.len() as u64;
                 if anchor != 0 {
-                    self.anchors.insert(anchor, 1);
+                    self.anchors.insert(anchor, n);
                 }
-                self.add(1);
+                self.add(n);
             }
             Event::SequenceStart(anchor, _) | Event::MappingStart(anchor, _) => {
                 self.frames.push((anchor, 1))
@@ -315,7 +318,7 @@ impl EventReceiver for NodeBudget {
     }
 }
 
-/// Nodes the text expands to, or None when it does not parse.
+/// The size the text expands to, or None when it does not parse.
 fn expanded_nodes(text: &str) -> Option<u64> {
     let mut b = NodeBudget::default();
     Parser::new_from_str(text).load(&mut b, true).ok()?;
@@ -456,8 +459,8 @@ pub fn check_workflow(name: &str, text: &str, cfg: &Config, exempt: bool) -> Rep
             ))],
         };
     }
-    if expanded_nodes(text).is_some_and(|n| n > MAX_NODES) {
-        return Report { seen: 0, bad: vec![whole(format!("expands to more than {MAX_NODES} YAML nodes through aliases; not checked, so not passed"))] };
+    if expanded_nodes(text).is_some_and(|n| n > MAX_EXPANDED) {
+        return Report { seen: 0, bad: vec![whole(format!("expands to more than {MAX_EXPANDED} bytes through aliases; not checked, so not passed"))] };
     }
     let docs = match YamlLoader::load_from_str(text) {
         Ok(d) => d,
@@ -1355,6 +1358,15 @@ mod tests {
         let r = check("t.yml", &t);
         assert_eq!(r.bad.len(), 1, "{r:?}");
         assert!(r.bad[0].reason.contains("expands to more than"), "{r:?}");
+        // One long scalar aliased many times.
+        let mut t = format!("on: [push]\ns: &s {}\nl: [", "x".repeat(100_000));
+        t.push_str(&vec!["*s"; 100].join(", "));
+        t.push_str(&format!("]\njobs:\n  a:\n    runs-on: {}\n", good("light")));
+        let r = check("t.yml", &t);
+        assert!(
+            r.bad.len() == 1 && r.bad[0].reason.contains("expands to more than"),
+            "{r:?}"
+        );
         let big = format!("on: [push]\n#{}\n", "x".repeat(MAX_BYTES));
         assert!(check("t.yml", &big).bad[0].reason.contains("larger than"));
     }
