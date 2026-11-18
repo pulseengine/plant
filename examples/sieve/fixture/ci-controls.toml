@@ -1,0 +1,63 @@
+# plant's false-skip controls for sieve, the shared CI path classifier.
+#
+# The check: for the changed paths in .plant/changed.md, sieve selects
+# nothing (every line of its github-output is `=false`). The baseline lists
+# only docs, so it must pass: a docs-only change selects no class and does
+# not run everything. Each plant replaces the list with a change that must
+# select something. If sieve skips a class that the change touches, the
+# planted run stays green, and plant reports FAIL-OPEN: a false skip.
+#
+# The true inputs planted here come from cargo's own build (dep-info of the
+# crates each class builds), checked by plant's tests/sieve_fixture.rs, not
+# from `sieve graph`.
+
+[[control]]
+id = "core-via-path-module"
+check = "sieve selects nothing for docs"
+run = "out=$(env -u GITHUB_OUTPUT sieve classify --config sieve.toml --paths-file .plant/changed.md --format github-output) && printf '%s\\n' \"$out\" && printf '%s\\n' \"$out\" | grep -qx 'run_all=false' && ! printf '%s\\n' \"$out\" | grep -q '=true$'"
+plant = "ci-controls/core-via-path-module"
+stderr_or_stdout_matches = '(?ms)^run_all=false$.*^core=true$'
+timeout = 60
+
+[[control]]
+id = "core-via-include-str"
+check = "sieve selects nothing for docs"
+run = "out=$(env -u GITHUB_OUTPUT sieve classify --config sieve.toml --paths-file .plant/changed.md --format github-output) && printf '%s\\n' \"$out\" && printf '%s\\n' \"$out\" | grep -qx 'run_all=false' && ! printf '%s\\n' \"$out\" | grep -q '=true$'"
+plant = "ci-controls/core-via-include-str"
+stderr_or_stdout_matches = '(?ms)^run_all=false$.*^core=true$'
+timeout = 60
+
+[[control]]
+id = "proofs-via-path-dep"
+check = "sieve selects nothing for docs"
+run = "out=$(env -u GITHUB_OUTPUT sieve classify --config sieve.toml --paths-file .plant/changed.md --format github-output) && printf '%s\\n' \"$out\" && printf '%s\\n' \"$out\" | grep -qx 'run_all=false' && ! printf '%s\\n' \"$out\" | grep -q '=true$'"
+plant = "ci-controls/proofs-via-path-dep"
+stderr_or_stdout_matches = '(?ms)^run_all=false$.*^proofs=true$'
+timeout = 60
+
+[[control]]
+id = "proofs-own-source"
+check = "sieve selects nothing for docs"
+run = "out=$(env -u GITHUB_OUTPUT sieve classify --config sieve.toml --paths-file .plant/changed.md --format github-output) && printf '%s\\n' \"$out\" && printf '%s\\n' \"$out\" | grep -qx 'run_all=false' && ! printf '%s\\n' \"$out\" | grep -q '=true$'"
+plant = "ci-controls/proofs-own-source"
+stderr_or_stdout_matches = '(?ms)^run_all=false$.*^proofs=true$'
+timeout = 60
+
+# A workflow change runs everything, and says why: a path reason, never an
+# `internal:` one.
+[[control]]
+id = "workflow-runs-all"
+check = "sieve selects nothing for docs"
+run = "out=$(env -u GITHUB_OUTPUT sieve classify --config sieve.toml --paths-file .plant/changed.md --format github-output) && printf '%s\\n' \"$out\" && printf '%s\\n' \"$out\" | grep -qx 'run_all=false' && ! printf '%s\\n' \"$out\" | grep -q '=true$'"
+plant = "ci-controls/workflow-runs-all"
+stderr_or_stdout_matches = 'run_all \(run-all path: \.github/workflows/ci\.yml is CI'
+timeout = 60
+
+# A new top-level path no class claims runs everything.
+[[control]]
+id = "unknown-path-runs-all"
+check = "sieve selects nothing for docs"
+run = "out=$(env -u GITHUB_OUTPUT sieve classify --config sieve.toml --paths-file .plant/changed.md --format github-output) && printf '%s\\n' \"$out\" && printf '%s\\n' \"$out\" | grep -qx 'run_all=false' && ! printf '%s\\n' \"$out\" | grep -q '=true$'"
+plant = "ci-controls/unknown-path-runs-all"
+stderr_or_stdout_matches = 'run_all \(run-all path: newtool/x\.rs is claimed by no class\)'
+timeout = 60

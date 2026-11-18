@@ -1,0 +1,7 @@
+schema = "sieve.config.v1"
+
+[class.core]
+cargo = ["core/Cargo.toml"]
+
+[class.proofs]
+cargo = ["proofs/Cargo.toml"]
