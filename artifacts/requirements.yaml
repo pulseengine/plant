@@ -133,7 +133,9 @@ artifacts:
       tag, and it gives both a PASS and a FAIL-OPEN verdict on a fixture),
       put the archives, a CycloneDX SBOM and a docs archive into
       SHA256SUMS.txt before signing it with cosign keyless, and attach SLSA
-      provenance to the archives.
+      provenance to the archives. It shall build, attest and sign only in a
+      run whose ref is a v* tag, so the signing identity is always
+      release.yml@refs/tags/<tag>.
     fields: {priority: must, category: interface}
     links:
       - type: satisfies

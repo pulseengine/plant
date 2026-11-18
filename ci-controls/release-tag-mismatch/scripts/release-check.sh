@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Release gates for plant, run by .github/workflows/release.yml.
 #
+#   release-check.sh ref-guard REF           REF is a v* tag ref, so whatever
+#                                            this run signs names refs/tags/<tag>
 #   release-check.sh version-guard TAG       the tag names Cargo.toml's version
 #   release-check.sh smoke BIN TAG           the packaged binary is that version
 #                                            and gives both verdicts on a fixture
@@ -13,6 +15,13 @@ die() { echo "release-check: $*" >&2; exit 1; }
 crate_version() {
   # The first `version = "..."` is [package]'s: Cargo.toml starts with it.
   sed -n 's/^version = "\([^"]*\)"$/\1/p' "${CARGO_TOML:-Cargo.toml}" | head -1
+}
+
+ref_guard() {
+  local ref=$1
+  [[ $ref =~ ^refs/tags/v[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?$ ]] \
+    || die "ref $ref is not a release tag; nothing is built or signed from it"
+  echo "release-check: $ref is a release tag"
 }
 
 version_guard() {
@@ -69,7 +78,8 @@ EOF
 }
 
 case "${1:-}" in
+  ref-guard) [ $# = 2 ] || exit 2; ref_guard "$2" ;;
   version-guard) [ $# = 2 ] || exit 2; version_guard "$2" ;;
   smoke) [ $# = 3 ] || exit 2; smoke "$2" "$3" ;;
-  *) echo "usage: release-check.sh version-guard TAG | smoke BIN TAG" >&2; exit 2 ;;
+  *) echo "usage: release-check.sh ref-guard REF | version-guard TAG | smoke BIN TAG" >&2; exit 2 ;;
 esac

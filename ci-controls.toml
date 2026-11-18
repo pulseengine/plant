@@ -70,6 +70,13 @@ run = "cargo test --test release smoke_rejects_a_binary_of_another_version"
 plant = "ci-controls/release-wrong-version"
 stderr_or_stdout_matches = 'a binary of another version passed the smoke test'
 
+[[control]]
+id = "release-branch-ref"
+check = "Test"
+run = "cargo test --test release ref_guard_accepts_only_a_release_tag"
+plant = "ci-controls/release-branch-ref"
+stderr_or_stdout_matches = 'a branch ref passed the ref guard'
+
 # plant guard must reject a self-hosted job without the fail-closed form
 [[control]]
 id = "guard-unguarded-site"

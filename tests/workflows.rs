@@ -50,10 +50,24 @@ fn release_runners(text: &str) -> usize {
         .filter_map(|l| l.strip_prefix("  ")?.strip_suffix(':'))
         .filter(|k| !k.starts_with([' ', '#']))
         .collect();
+    // A run from a branch would sign the sums as release.yml@refs/heads/...,
+    // which varve refuses: no workflow_dispatch, and push only for tags.
+    assert_eq!(triggers, ["push"], "release.yml may run only on a tag push");
+    let push: Vec<&str> = text
+        .lines()
+        .skip_while(|l| *l != "  push:")
+        .skip(1)
+        .take_while(|l| l.starts_with("    "))
+        .map(str::trim)
+        .collect();
     assert_eq!(
-        triggers,
-        ["push", "workflow_dispatch"],
-        "release.yml may run only on a tag push or a manual dispatch"
+        push,
+        ["tags:", "- \"v*\""],
+        "release.yml: push may name only v* tags"
+    );
+    assert!(
+        !text.contains("inputs."),
+        "release.yml reads workflow inputs; the ref must come from the tag push"
     );
     assert!(
         !text
@@ -89,6 +103,7 @@ fn release_signs_what_it_publishes() {
     // Steps that must come in this order: what enters the sums is produced
     // before the sums; the sums exist before they are signed.
     let order = [
+        "scripts/release-check.sh ref-guard \"$GITHUB_REF\"",
         "scripts/release-check.sh version-guard",
         "scripts/release-check.sh smoke",
         "cargo cyclonedx",
@@ -96,6 +111,7 @@ fn release_signs_what_it_publishes() {
         "-docs.tar.gz\" -C docs-out",
         "> release-assets/build-env.txt",
         "sha256sum ./* > SHA256SUMS.txt",
+        "scripts/release-check.sh ref-guard \"$GITHUB_REF\"",
         "actions/attest-build-provenance@",
         "cosign sign-blob",
         "gh release create",
@@ -123,6 +139,10 @@ fn release_signs_what_it_publishes() {
             "release.yml: {perm} must appear once, inside create-release"
         );
     }
+    assert!(
+        !text.contains("heads/"),
+        "release.yml: the verify identity admits a branch"
+    );
     assert!(
         !text.contains("--clobber"),
         "release.yml overwrites published assets"

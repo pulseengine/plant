@@ -83,6 +83,12 @@ const PLANTS: &[(&str, &str, &str, &str)] = &[
         "  true",
     ),
     (
+        "release-branch-ref",
+        "scripts/release-check.sh",
+        "    || die \"ref $ref is not a release tag; nothing is built or signed from it\"",
+        "    || true",
+    ),
+    (
         "kill-shell-only",
         "src/runner.rs",
         "libc::kill(-pgid, libc::SIGKILL);",

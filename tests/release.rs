@@ -111,3 +111,27 @@ fn smoke_rejects_a_binary_without_verdicts() {
     assert_eq!(out.status.code(), Some(1), "{out:?}");
     assert!(String::from_utf8_lossy(&out.stderr).contains("fail-open control did not exit 1"));
 }
+
+// rivet: verifies REQ-010
+#[test]
+fn ref_guard_accepts_only_a_release_tag() {
+    for good in ["refs/tags/v0.1.0", "refs/tags/v1.2.3-rc.1"] {
+        let out = check(&["ref-guard", good], &[]);
+        assert_eq!(out.status.code(), Some(0), "{good}: {out:?}");
+    }
+    // First, so a missing guard fails with this message and nothing else.
+    for bad in [
+        "refs/heads/main",
+        "refs/heads/feat/x",
+        "refs/pull/3/merge",
+        "refs/tags/v0.1",
+        "",
+    ] {
+        let out = check(&["ref-guard", bad], &[]);
+        assert!(
+            out.status.code() != Some(0),
+            "a branch ref passed the ref guard: {bad:?}"
+        );
+        assert_eq!(out.status.code(), Some(1), "{bad}: {out:?}");
+    }
+}
