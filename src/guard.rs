@@ -195,10 +195,13 @@ fn runs_on_form_labels(v: &str, cfg: &Config) -> Option<Vec<String>> {
     list.iter().any(|l| l == "self-hosted").then_some(list)
 }
 
-/// The key of `${{ matrix.<ident> }}` exactly, else None.
+/// The key of `${{ matrix.<ident> }}`, with any spaces or tabs inside the
+/// braces (`${{matrix.os   }}` is the same reference), else None.
 fn plain_matrix_key(v: &str) -> Option<&str> {
-    v.strip_prefix("${{ matrix.")
-        .and_then(|r| r.strip_suffix(" }}"))
+    v.strip_prefix("${{")
+        .and_then(|r| r.strip_suffix("}}"))
+        .map(|r| r.trim_matches([' ', '\t']))
+        .and_then(|r| r.strip_prefix("matrix."))
         .filter(|id| {
             !id.is_empty()
                 && id
@@ -1391,6 +1394,29 @@ mod tests {
             "{:?}",
             check("t.yml", &t)
         );
+    }
+
+    // sigil's equivalence corpus, shape s19: spacing inside the braces is the
+    // same matrix reference. Values are still checked.
+    // rivet: verifies REQ-011
+    #[test]
+    fn a_matrix_ref_with_odd_spacing_is_still_a_matrix_ref() {
+        let job = |ro: &str, os: &str| {
+            format!("on: [push]\njobs:\n  a:\n    strategy:\n      matrix:\n        os: [{os}]\n    runs-on: {ro}\n")
+        };
+        for ro in ["${{matrix.os   }}", "${{  matrix.os}}", "${{\tmatrix.os }}"] {
+            assert!(
+                check("t.yml", &job(ro, "ubuntu-latest")).bad.is_empty(),
+                "{ro}"
+            );
+            assert_eq!(
+                check("t.yml", &job(ro, "light")).bad.len(),
+                1,
+                "{ro} with a label"
+            );
+        }
+        assert_eq!(plain_matrix_key("${{ matrix.os || 'x' }}"), None);
+        assert_eq!(plain_matrix_key("${{ matrix. }}"), None);
     }
 
     // rivet: verifies REQ-012
