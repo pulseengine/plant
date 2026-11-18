@@ -15,7 +15,10 @@ those cases into plant controls that run on sigil's real tree instead:
 To use it, copy `ci-controls.toml` and `ci-controls/` to the root of sigil and
 run `plant`. This is an example in plant's repository; sigil has not adopted it.
 
-Last run against sigil `main` at f51d09b on 2026-11-17: 12 of 12
-controls PASS. While writing it, four plants first went red on a YAML quoting
+Last run against sigil `main` at c18be87 on 2026-11-18, with the released
+plant v0.1.0 binary: 13 of 13 controls PASS. `label-fallback` covers the
+fallback rule sigil tightened in #387 (only `ubuntu-latest` or a pinned
+`ubuntu-NN.NN`); with its fallback changed to `ubuntu-24.04` the guard accepts
+the plant and plant reports FAIL-OPEN for it. While writing it, four plants first went red on a YAML quoting
 error in the plant itself; the regex reported them as FAIL ("went red for some
 other reason") instead of letting them pass.

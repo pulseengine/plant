@@ -51,6 +51,16 @@ plant = "ci-controls/fail-open-fork-form"
 stderr_or_stdout_matches = '''planted\.yml:planted: runs-on .*head\.repo\.fork.* is neither'''
 timeout = 60
 
+# the fail-closed form with a self-hosted label as its fallback, so a fork
+# would still land on self-hosted
+[[control]]
+id = "label-fallback"
+check = "fork guard"
+run = "python3 verification/selfhosted-guard/check.py ."
+plant = "ci-controls/label-fallback"
+stderr_or_stdout_matches = '''planted\.yml:planted: runs-on .*\|\| \\'light\\' \}\}' is neither'''
+timeout = 60
+
 # a matrix value that is a custom label
 [[control]]
 id = "matrix-label"
