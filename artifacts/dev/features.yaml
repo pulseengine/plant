@@ -250,7 +250,7 @@ artifacts:
     status: implemented
     description: >
       examples/sieve/fixture (two crates, sieve.toml, six controls),
-      scripts/sieve-controls.sh (fetches sieve v0.1.0 by URL against a pinned
+      scripts/sieve-controls.sh (fetches the pinned sieve release by URL against a pinned
       digest and runs plant on a throwaway copy of the fixture), the
       sieve-controls CI job, and tests/sieve_fixture.rs, the dep-info oracle.
       Interface: seam pulseengine/sieve#3.
@@ -258,7 +258,7 @@ artifacts:
     fields:
       phase: phase-2
       acceptance-criteria:
-        - all six controls PASS against sieve v0.1.0
+        - all six controls PASS against the pinned sieve release (v0.1.0, then v0.2.0)
         - against a sieve that selects nothing, all six report FAIL-OPEN
         - a planted path that is not a class input by dep-info fails the oracle test
     links:
