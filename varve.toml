@@ -9,6 +9,9 @@ manifest-version = 1
 realm   = "covalent"
 channel = "rolling"
 layer   = "2026.11.16"
-# From `varve list` after `varve install` (counter 17). With the digest, varve
-# resolves this layer exactly; it is not yet in the signed index (covalent-layers#98).
+# From `varve list` after `varve install` (counter 17). The layer's manifest is
+# signed and `varve verify` checks it against the covalent trust root (and each
+# composed layer against its own realm). Only the realm's signed line-index,
+# which lists the line's layers, does not name 2026.11.16 yet
+# (covalent-layers#98); with the digest, varve resolves this layer exactly.
 digest  = "sha256:a38d3e3405419a6ffef1c92a9c2a42781b9bc0ef34cdb5feb9e8970e429aa44c"
