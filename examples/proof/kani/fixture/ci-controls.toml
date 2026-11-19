@@ -1,0 +1,12 @@
+# The Kani proof-gate pack, against the fixture's real gate (check.sh: cargo
+# kani, then every kani::assume must be listed in assumes.ledger, because
+# the ledger of input-narrowing assumptions may only shrink). Every control
+# must PASS.
+
+[[control]]
+id = "kani-narrowing-assume"
+check = "proof check with assume ledger"
+run = "./check.sh"
+plant = "ci-controls/kani-narrowing-assume"
+stderr_or_stdout_matches = 'assume not in assumes\.ledger:\s+src/lib\.rs: kani::assume\(x < 50\);'
+timeout = 900

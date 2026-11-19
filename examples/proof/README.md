@@ -36,3 +36,22 @@ of 2 FAIL-OPEN, blind 1 of 1 FAIL-OPEN.
 Not claimed: that the fixture's proofs are meaningful, that this audit is the
 right one for any particular repository, or that passing the pack makes a
 repository's proofs sound.
+
+## kani
+
+The gate is `cargo kani`, followed by a ledger check: every `kani::assume`
+in `src/` must be listed in `assumes.ledger`. Comment lines are not code. The
+O3 indicator counts input-narrowing assumptions in the ledger, and its guard
+says they may only shrink, because a bug outside the assumed range is
+invisible to the proof.
+
+| control | planted change | the gate rejects it because |
+|---|---|---|
+| kani-narrowing-assume | a new `kani::assume(x < 50)` in the harness | it is not in `assumes.ledger` |
+| kani-assume-in-comment (blind) | the same assume, only as a comment | it doesn't: a comment narrows nothing |
+
+Plain `cargo kani` still verifies the narrowed harness, so the stand-in must
+report FAIL-OPEN.
+
+Measured on 2026-11-20 with Kani 0.67.0: real gate 1 of 1 PASS, stand-in 1
+of 1 FAIL-OPEN, blind 1 of 1 FAIL-OPEN.

@@ -7,7 +7,7 @@
 #   ci-controls.blind.toml     every control FAIL-OPEN (a hole in a file the
 #                              gate never builds must not count as rejected)
 #
-#   scripts/proof-packs.sh PLANT_BIN [PACK...]     default packs: lean
+#   scripts/proof-packs.sh PLANT_BIN [PACK...]     default packs: lean kani
 #
 # Each fixture is copied into a throwaway git repository, since plant runs
 # on HEAD. Exit 0 when every manifest gave its expected verdicts, 1 otherwise,
@@ -17,7 +17,7 @@ set -euo pipefail
 plant=${1:?usage: proof-packs.sh PLANT_BIN [PACK...]}; shift
 case $plant in /*) ;; *) plant="$PWD/$plant" ;; esac
 root=$(cd "$(dirname "$0")/.." && pwd)
-packs=("$@"); [ ${#packs[@]} -gt 0 ] || packs=(lean)
+packs=("$@"); [ ${#packs[@]} -gt 0 ] || packs=(lean kani)
 
 t=$(mktemp -d)
 trap 'rm -rf "$t"' EXIT

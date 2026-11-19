@@ -52,3 +52,40 @@ jobs:
           lean --version
           cargo build --locked
           scripts/proof-packs.sh target/debug/plant lean
+
+  kani:
+    name: proof packs (kani)
+    # Fork PRs never reach self-hosted runners (fail-closed same-repo guard).
+    runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && fromJSON('["self-hosted","linux","x64","light"]') || 'ubuntu-24.04' }}
+    env:
+      KANI_VERSION: "0.67.0"
+      KANI_HOME: ${{ runner.temp }}/kani-home
+      CARGO_INSTALL_ROOT: ${{ runner.temp }}/kani-bin
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dtolnay/rust-toolchain@39008827e6b4319a349e9a42dfc90579dd25f1ca # stable, 2026-11-15
+        with:
+          toolchain: stable
+      # cargo-kani and the CBMC bundle that `cargo kani setup` downloads.
+      - name: cache Kani
+        id: kani-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ${{ runner.temp }}/kani-bin
+            ${{ runner.temp }}/kani-home
+          key: kani-${{ env.KANI_VERSION }}-${{ runner.os }}-${{ runner.arch }}
+      - name: install Kani
+        if: steps.kani-cache.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          cargo install --locked kani-verifier --version "$KANI_VERSION"
+          "$CARGO_INSTALL_ROOT/bin/cargo-kani" setup
+      - name: run the packs
+        run: |
+          set -euo pipefail
+          echo "$CARGO_INSTALL_ROOT/bin" >> "$GITHUB_PATH"
+          export PATH="$CARGO_INSTALL_ROOT/bin:$PATH"
+          cargo kani --version
+          cargo build --locked
+          scripts/proof-packs.sh target/debug/plant kani
