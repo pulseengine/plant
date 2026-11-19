@@ -8,4 +8,7 @@ manifest-version = 1
 [toolchain]
 realm   = "covalent"
 channel = "rolling"
-layer   = "2026.11.10"
+layer   = "2026.11.16"
+# From `varve list` after `varve install` (counter 17). With the digest, varve
+# resolves this layer exactly; it is not yet in the signed index (covalent-layers#98).
+digest  = "sha256:a38d3e3405419a6ffef1c92a9c2a42781b9bc0ef34cdb5feb9e8970e429aa44c"
