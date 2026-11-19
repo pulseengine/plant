@@ -1,0 +1,12 @@
+# Blind spot: a hole planted in a file the proof check never builds
+# (scratch/ is not part of the Fixture library). The real gate stays green, so
+# this control must report FAIL-OPEN. A pack that reported PASS here would be
+# matching something other than the gate's rejection.
+
+[[control]]
+id = "lean-hole-in-unbuilt-file"
+check = "proof check with axiom audit"
+run = "./check.sh"
+plant = "ci-controls/lean-hole-in-unbuilt-file"
+stderr_or_stdout_matches = 'disallowed axiom'
+timeout = 600
