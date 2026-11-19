@@ -36,10 +36,12 @@ The true inputs come from cargo, not from `sieve graph`.
 every crate compiled. It requires every true-input plant to be an input of
 its class, and the baseline and run-all plants to be inputs of none.
 
-Run: `scripts/sieve-controls.sh target/debug/plant` fetches sieve v0.1.0 by
+Run: `scripts/sieve-controls.sh target/debug/plant` fetches sieve v0.2.0 by
 URL, checks it against a pinned digest (copied from its cosign-verified
 SHA256SUMS.txt), copies the fixture into a throwaway git repository and runs
 plant there. CI runs the same script in the `sieve false-skip controls` job.
 
-Measured on 2026-11-18 against sieve v0.1.0: 6 of 6 PASS. Against a stand-in
-sieve that selects nothing for every change, all 6 reported FAIL-OPEN.
+Measured on 2026-11-19 against sieve v0.2.0 (cosign-verified with
+release.yml@refs/tags/v0.2.0): 6 of 6 PASS. Against a stand-in sieve that
+selects nothing for every change, all 6 reported FAIL-OPEN. The same held for
+sieve v0.1.0 on 2026-11-18.
