@@ -265,3 +265,58 @@ artifacts:
       - type: satisfies
         target: REQ-014
 
+  - id: FEAT-012
+    type: feature
+    title: Proof-gate controls (O3)
+    status: draft
+    release: v0.4.0
+    description: >
+      Draft scope for v0.4.0, pending the owner's decision. See
+      docs/plan/v0.4.0.md for acceptance and kill criteria.
+    fields:
+      phase: phase-2
+    links:
+      - type: satisfies
+        target: REQ-015
+
+  - id: FEAT-013
+    type: feature
+    title: Required-check census and verified runner (O3 summary)
+    status: draft
+    release: v0.4.0
+    description: >
+      Draft scope for v0.4.0, pending the owner's decision. See
+      docs/plan/v0.4.0.md for acceptance and kill criteria.
+    fields:
+      phase: phase-2
+    links:
+      - type: satisfies
+        target: REQ-016
+
+  - id: FEAT-014
+    type: feature
+    title: Bundle negative controls (O2)
+    status: draft
+    release: v0.4.0
+    description: >
+      Draft scope for v0.4.0, pending the owner's decision. See
+      docs/plan/v0.4.0.md for acceptance and kill criteria.
+    fields:
+      phase: phase-2
+    links:
+      - type: satisfies
+        target: REQ-017
+
+  - id: FEAT-015
+    type: feature
+    title: plant guard as a signed WASI component (O5)
+    status: draft
+    release: v0.4.0
+    description: >
+      Draft scope for v0.4.0, pending the owner's decision. See
+      docs/plan/v0.4.0.md for acceptance and kill criteria.
+    fields:
+      phase: phase-2
+    links:
+      - type: satisfies
+        target: REQ-018

@@ -226,3 +226,50 @@ artifacts:
       - type: satisfies
         target: SC-1
 
+  - id: REQ-015
+    type: requirement
+    title: plant ships planted proof escapes that a proof gate must reject
+    status: draft
+    release: v0.4.0
+    description: >
+      Serves O3 (indicator: proof-carrying repositories whose proof check, with a kernel axiom audit and a trust-escape ledger, is a required check). examples/proof shall hold controls for Lean (sorry, axiom) and Kani (an input-narrowing kani::assume) that turn a proof check, its axiom audit or its ledger red, each with a regex; a stand-in check that only type-checks shall turn the axiom and assume controls FAIL-OPEN. A manifest key may keep a shallow .git in the scratch copy for ledger checks. Plan: docs/plan/v0.4.0.md, bet A.
+    fields: {priority: should, category: functional}
+    links:
+      - type: satisfies
+        target: SC-1
+
+  - id: REQ-016
+    type: requirement
+    title: plant census reports which required checks a planted input turned red
+    status: draft
+    release: v0.4.0
+    description: >
+      Serves O3 (summary: each claim maps to a CI check that can fail); not the O3 indicator. `plant census` shall map required contexts, workflows, manifests and CI reports to plant.census.v1, counting a context as covered only when the control is bound to its job step, went red with a regex on a green baseline, and the report is fresh, from a default-branch CI run, and from a verified plant release. plant run reports shall carry the schema plant.report.v1. Plan: bet B.
+    fields: {priority: should, category: functional}
+    links:
+      - type: satisfies
+        target: SC-1
+
+  - id: REQ-017
+    type: requirement
+    title: plant ships negative controls for the one-command evidence bundle
+    status: draft
+    release: v0.4.0
+    description: >
+      Serves O2 (guard: the verify command must fail when any piece of evidence is removed). examples/bundle shall hold controls that remove or alter each of the rivet trace, witness report and sigil attestation, all of which the verify command must reject, with a stand-in that only checks existence turning them FAIL-OPEN. Plan: bet C; dropped if no single verify command exists.
+    fields: {priority: should, category: functional}
+    links:
+      - type: satisfies
+        target: SC-1
+
+  - id: REQ-018
+    type: requirement
+    title: plant guard runs as a signed WASI component with an equivalence test
+    status: draft
+    release: v0.4.0
+    description: >
+      Serves O5 (indicator: tools and gates running as signed WASI components under kiln, wasmtime as the differential). plant guard shall build from a pure core for wasm32-wasip2, be signed in the release, and be held byte-identical to the native plant guard by a CI equivalence job under wasmtime and kiln. Plan: bet D; gated on kiln running a wasip2 command component.
+    fields: {priority: should, category: functional}
+    links:
+      - type: satisfies
+        target: SSC-3
