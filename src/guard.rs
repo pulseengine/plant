@@ -67,10 +67,18 @@ pub const CONFIG_FILE: &str = "plant-guard.toml";
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct ConfigFile {
-    fallback: Option<String>,
+    fallback: Option<Fallback>,
     labels: Option<Vec<String>>,
     #[serde(default)]
     exempt: Vec<Exempt>,
+}
+
+/// `fallback = "ubuntu-24.04"` or `fallback = ["ubuntu-24.04", "ubuntu-latest"]`.
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum Fallback {
+    One(String),
+    Many(Vec<String>),
 }
 
 #[derive(Deserialize, Clone)]
@@ -81,7 +89,10 @@ pub struct Exempt {
 }
 
 pub struct Config {
+    /// The first accepted fallback image (reported as `fallback`).
     pub fallback: String,
+    /// Every hosted image the fail-closed forms may fall back to.
+    pub fallbacks: Vec<String>,
     /// The provisioned runner labels; None when the config declares none.
     pub labels: Option<BTreeSet<String>>,
     pub exempt: Vec<Exempt>,
@@ -91,6 +102,7 @@ impl Default for Config {
     fn default() -> Self {
         Config {
             fallback: DEFAULT_FALLBACK.into(),
+            fallbacks: vec![DEFAULT_FALLBACK.into()],
             labels: None,
             exempt: vec![],
         }
@@ -100,12 +112,20 @@ impl Default for Config {
 impl Config {
     pub fn parse(text: &str) -> Result<Config, String> {
         let f: ConfigFile = toml::from_str(text).map_err(|e| e.to_string())?;
-        let fallback = f.fallback.unwrap_or_else(|| DEFAULT_FALLBACK.into());
-        if !is_hosted(&fallback) || fallback.contains('\'') {
-            return Err(format!(
-                "fallback {fallback:?} is not a GitHub-hosted image name"
-            ));
+        let fallbacks = match f.fallback {
+            None => vec![DEFAULT_FALLBACK.to_string()],
+            Some(Fallback::One(s)) => vec![s],
+            Some(Fallback::Many(v)) => v,
+        };
+        if fallbacks.is_empty() {
+            return Err("fallback is an empty list; omit it or name a hosted image".into());
         }
+        for fb in &fallbacks {
+            if !is_hosted(fb) || fb.contains('\'') {
+                return Err(format!("fallback {fb:?} is not a GitHub-hosted image name"));
+            }
+        }
+        let fallback = fallbacks[0].clone();
         let labels = match f.labels {
             None => None,
             Some(v) => {
@@ -136,20 +156,30 @@ impl Config {
         }
         Ok(Config {
             fallback,
+            fallbacks,
             labels,
             exempt: f.exempt,
         })
     }
 
-    fn form_tail(&self) -> String {
-        format!("]') || '{}' }}}}", self.fallback)
+    /// True when `tail` ends the single-label form with an accepted fallback.
+    fn is_form_tail(&self, tail: &str) -> bool {
+        self.fallbacks
+            .iter()
+            .any(|fb| tail == format!("]') || '{fb}' }}}}"))
     }
 
+    /// The matrix form with each accepted fallback.
+    fn matrix_forms(&self) -> Vec<String> {
+        self.fallbacks
+            .iter()
+            .map(|fb| format!("${{{{ {MATRIX_GUARD} && matrix.runner || '{fb}' }}}}"))
+            .collect()
+    }
+
+    #[cfg(test)]
     fn matrix_form(&self) -> String {
-        format!(
-            "${{{{ {MATRIX_GUARD} && matrix.runner || '{}' }}}}",
-            self.fallback
-        )
+        self.matrix_forms().remove(0)
     }
 }
 
@@ -188,7 +218,7 @@ fn runs_on_form_labels(v: &str, cfg: &Config) -> Option<Vec<String>> {
         .strip_prefix(" && fromJSON('[")?;
     let end = rest.find("]')")?;
     let labels = &rest[..end];
-    if labels.contains('\'') || rest[end..] != cfg.form_tail() {
+    if labels.contains('\'') || !cfg.is_form_tail(&rest[end..]) {
         return None;
     }
     let list: Vec<String> = serde_json::from_str(&format!("[{labels}]")).ok()?;
@@ -493,7 +523,7 @@ pub fn check_workflow(name: &str, text: &str, cfg: &Config, exempt: bool) -> Rep
             )],
         };
     }
-    let matrix_form = cfg.matrix_form();
+    let matrix_forms = cfg.matrix_forms();
     let mut bad = Vec::new();
     let mut seen = 0;
     let odd = case_variants(doc);
@@ -578,7 +608,7 @@ pub fn check_workflow(name: &str, text: &str, cfg: &Config, exempt: bool) -> Rep
                     seen += 1;
                     check_labels(&labels, &mut bad);
                     true
-                } else if *v == matrix_form {
+                } else if matrix_forms.contains(v) {
                     seen += 1 + self_hosted_legs;
                     match &runner_vals {
                         Some(vals) if !vals.is_empty() => vals.iter().all(|x| match x {
@@ -635,7 +665,7 @@ pub fn check_workflow(name: &str, text: &str, cfg: &Config, exempt: bool) -> Rep
             }
             bad.push(at("runs-on", "runs-on is not a hosted image, the fail-closed form, or a matrix whose every runner is a hosted image".into()));
         }
-        let is_matrix_form = matches!(runs_on, Yaml::String(v) if *v == matrix_form);
+        let is_matrix_form = matches!(runs_on, Yaml::String(v) if matrix_forms.contains(v));
         if self_hosted_legs > 0 && !is_matrix_form {
             seen += self_hosted_legs;
             bad.push(at("runner", "self-hosted matrix runner in a job whose runs-on is not the fail-closed matrix form".into()));
@@ -680,6 +710,7 @@ pub struct GuardRun {
     pub seen: usize,
     pub bad: Vec<Violation>,
     pub fallback: String,
+    pub fallbacks: Vec<String>,
 }
 
 impl GuardRun {
@@ -761,6 +792,7 @@ pub fn run(dir: &Path, cfg: &Config) -> Result<GuardRun, String> {
         seen,
         bad,
         fallback: cfg.fallback.clone(),
+        fallbacks: cfg.fallbacks.clone(),
     })
 }
 
@@ -797,6 +829,7 @@ pub fn json(r: &GuardRun) -> String {
         "self_hosted_lines": r.seen,
         "compared_nothing": r.seen == 0,
         "fallback": r.fallback,
+        "fallbacks": r.fallbacks,
         "violations": r.bad,
     })
     .to_string()
@@ -809,6 +842,7 @@ mod tests {
     fn cfg() -> Config {
         Config {
             fallback: DEFAULT_FALLBACK.into(),
+            fallbacks: vec![DEFAULT_FALLBACK.into()],
             labels: Some(
                 ["self-hosted", "linux", "x64", "light", "rust-cpu"]
                     .iter()
@@ -1417,6 +1451,44 @@ mod tests {
         }
         assert_eq!(plain_matrix_key("${{ matrix.os || 'x' }}"), None);
         assert_eq!(plain_matrix_key("${{ matrix. }}"), None);
+    }
+
+    // sigil's corpus, cases t00 and t01: a repo may accept several fallbacks.
+    // rivet: verifies REQ-011
+    #[test]
+    fn fallback_may_be_a_list() {
+        let c = Config::parse(
+            "fallback = [\"ubuntu-24.04\", \"ubuntu-latest\"]\nlabels = [\"self-hosted\", \"light\"]\n",
+        )
+        .unwrap();
+        assert_eq!(c.fallback, "ubuntu-24.04");
+        let form = |fb: &str| {
+            format!("${{{{ {GUARD} && fromJSON('[\"self-hosted\",\"light\"]') || '{fb}' }}}}")
+        };
+        for fb in ["ubuntu-24.04", "ubuntu-latest"] {
+            let r = check_workflow("t.yml", &wf("on: [pull_request]", &form(fb)), &c, false);
+            assert!(r.bad.is_empty(), "{fb}: {r:?}");
+            let m = c
+                .matrix_forms()
+                .into_iter()
+                .find(|m| m.ends_with(&format!("'{fb}' }}}}")))
+                .unwrap();
+            let t = format!("on: [pull_request]\njobs:\n  a:\n    strategy:\n      matrix:\n        include:\n          - runner: [self-hosted, light]\n    runs-on: {m}\n");
+            assert!(
+                check_workflow("t.yml", &t, &c, false).bad.is_empty(),
+                "matrix {fb}"
+            );
+        }
+        // A fallback outside the list is still rejected.
+        let r = check_workflow(
+            "t.yml",
+            &wf("on: [pull_request]", &form("ubuntu-22.04")),
+            &c,
+            false,
+        );
+        assert_eq!(r.bad.len(), 1, "{r:?}");
+        assert!(Config::parse("fallback = []").is_err());
+        assert!(Config::parse("fallback = [\"ubuntu-24.04\", \"light\"]").is_err());
     }
 
     // rivet: verifies REQ-012
