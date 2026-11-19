@@ -23,8 +23,12 @@ wasmtime, as sigil's "No fork PR reaches a self-hosted runner" job does.
 `bare-label-check-py` runs `check.py` on the same plant as a cross-check. Set
 `CARGO_TARGET_DIR` to a dedicated absolute directory so the scratch copies
 share one build: the plants change only workflow files, never the guard's
-source. `wasmtime` must be on PATH as a real binary. A varve shim refuses to
-run in plant's scratch copies, because sigil pins no varve layer.
+source. `wasmtime` must resolve in plant's scratch copies. Before sigil
+ca965be, sigil pinned no varve layer, so a varve shim refused there and a real
+wasmtime binary had to be on PATH. Since ca965be, sigil pins a covalent
+layer, and a shim resolves wasmtime from it once that layer is installed and
+not below the machine's anti-rollback mark (see `varve verify`). sigil's own CI
+installs wasmtime 50.0.1 directly.
 
 Last run against sigil `main` at 8df6dcc on 2026-11-18, with the released
 plant v0.2.0 and wasmtime 50.0.1 (varve layer 2026.11.10): 14 of 14 controls
