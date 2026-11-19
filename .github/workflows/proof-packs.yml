@@ -1,0 +1,54 @@
+name: Proof packs
+
+# The proof-gate packs in examples/proof (docs/plan/v0.4.0.md, bet A). Not a
+# required check: the Lean toolchain is a 600 MB download, so this workflow
+# runs only when a pack, its runner or plant's source changes, and caches the
+# toolchain. It hosts no required context, so a paths filter is allowed here.
+on:
+  pull_request:
+    paths: ["examples/proof/**", "scripts/proof-packs.sh", "src/**", ".github/workflows/proof-packs.yml"]
+  push:
+    branches: [main]
+    paths: ["examples/proof/**", "scripts/proof-packs.sh", "src/**", ".github/workflows/proof-packs.yml"]
+
+permissions:
+  contents: read
+
+env:
+  LEAN_VERSION: "4.36.0"
+  # From the leanprover/lean4 v4.36.0 release asset digest.
+  LEAN_SHA256: 2b7ab1ed8b92d2e6abfaf41344823b510064dbc9c0260cac73eb496ab2dea6eb
+
+jobs:
+  lean:
+    name: proof packs (lean)
+    # Fork PRs never reach self-hosted runners (fail-closed same-repo guard).
+    runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && fromJSON('["self-hosted","linux","x64","light"]') || 'ubuntu-24.04' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dtolnay/rust-toolchain@39008827e6b4319a349e9a42dfc90579dd25f1ca # stable, 2026-11-15
+        with:
+          toolchain: stable
+      - name: cache the Lean toolchain
+        id: lean-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/lean
+          key: lean-${{ env.LEAN_VERSION }}-${{ env.LEAN_SHA256 }}
+      - name: fetch the pinned Lean toolchain
+        if: steps.lean-cache.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          d="$RUNNER_TEMP/lean"; mkdir -p "$d"; cd "$d"
+          a="lean-$LEAN_VERSION-linux.tar.zst"
+          curl -fsSL --retry 3 -o "$a" "https://github.com/leanprover/lean4/releases/download/v$LEAN_VERSION/$a"
+          test "$(sha256sum "$a" | cut -d' ' -f1)" = "$LEAN_SHA256" || { echo "checksum mismatch for $a"; exit 1; }
+          tar --zstd -xf "$a" && rm "$a"
+      - name: run the packs
+        run: |
+          set -euo pipefail
+          echo "$RUNNER_TEMP/lean/lean-$LEAN_VERSION-linux/bin" >> "$GITHUB_PATH"
+          export PATH="$RUNNER_TEMP/lean/lean-$LEAN_VERSION-linux/bin:$PATH"
+          lean --version
+          cargo build --locked
+          scripts/proof-packs.sh target/debug/plant lean

@@ -1,0 +1,19 @@
+# Negative control for the pack: a stand-in gate that only type-checks
+# (plain lake build). Both controls must report FAIL-OPEN: a build that
+# accepts sorry and a new axiom is exactly what the pack exists to expose.
+
+[[control]]
+id = "lean-sorry"
+check = "type-check only"
+run = "lake build"
+plant = "ci-controls/lean-sorry"
+stderr_or_stdout_matches = 'disallowed axiom\(s\): sorryAx'
+timeout = 600
+
+[[control]]
+id = "lean-axiom"
+check = "type-check only"
+run = "lake build"
+plant = "ci-controls/lean-axiom"
+stderr_or_stdout_matches = 'disallowed axiom\(s\): Fixture\.cheat'
+timeout = 600
