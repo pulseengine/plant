@@ -220,6 +220,7 @@ artifacts:
       shall be checked against cargo's dep-info, not against `sieve graph`,
       and CI shall run the controls against a sieve release pinned by
       digest.
+    release: v0.3.0
     fields: {priority: must, category: functional}
     links:
       - type: satisfies

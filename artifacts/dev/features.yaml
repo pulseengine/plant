@@ -254,6 +254,7 @@ artifacts:
       digest and runs plant on a throwaway copy of the fixture), the
       sieve-controls CI job, and tests/sieve_fixture.rs, the dep-info oracle.
       Interface: seam pulseengine/sieve#3.
+    release: v0.3.0
     fields:
       phase: phase-2
       acceptance-criteria:
