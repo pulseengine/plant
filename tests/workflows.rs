@@ -109,6 +109,7 @@ fn release_signs_what_it_publishes() {
         "cargo cyclonedx",
         "plant.cdx.json \"release-assets/",
         "-docs.tar.gz\" -C docs-out",
+        "> release-assets/north-star-input.O3.json",
         "> release-assets/build-env.txt",
         "sha256sum ./* > SHA256SUMS.txt",
         "scripts/release-check.sh ref-guard \"$GITHUB_REF\"",
