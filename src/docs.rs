@@ -118,7 +118,8 @@ merge_group is trusted as in relay's original: code from a fork runs on
 self-hosted once a maintainer queues the pull request.
 
 Config, DIR/plant-guard.toml (or --config):
-  fallback = "ubuntu-24.04"            # the hosted image a fork falls back to
+  fallback = "ubuntu-24.04"            # the hosted image a fork falls back to;
+                                       # or a list: ["ubuntu-24.04", "ubuntu-latest"]
   labels = ["self-hosted", "linux", "x64", "light"]   # provisioned labels
   [[exempt]]                           # may select labels without the form
   workflow = "nightly.yml"
