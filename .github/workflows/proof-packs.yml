@@ -59,10 +59,14 @@ jobs:
     runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && fromJSON('["self-hosted","linux","x64","light"]') || 'ubuntu-24.04' }}
     env:
       KANI_VERSION: "0.67.0"
-      KANI_HOME: ${{ runner.temp }}/kani-home
-      CARGO_INSTALL_ROOT: ${{ runner.temp }}/kani-bin
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # The runner context is not available in a job's env, so the paths
+      # under runner.temp are set here for every later step.
+      - name: Kani paths
+        run: |
+          echo "KANI_HOME=$RUNNER_TEMP/kani-home" >> "$GITHUB_ENV"
+          echo "CARGO_INSTALL_ROOT=$RUNNER_TEMP/kani-bin" >> "$GITHUB_ENV"
       - uses: dtolnay/rust-toolchain@39008827e6b4319a349e9a42dfc90579dd25f1ca # stable, 2026-11-15
         with:
           toolchain: stable
