@@ -5,3 +5,9 @@ cargo = ["core/Cargo.toml"]
 
 [class.proofs]
 cargo = ["proofs/Cargo.toml"]
+
+[class.gen]
+cargo = ["tools/gen/Cargo.toml"]
+
+[workflows]
+scope_leaf_edits = true

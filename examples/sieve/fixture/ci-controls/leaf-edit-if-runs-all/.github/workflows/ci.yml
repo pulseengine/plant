@@ -1,0 +1,41 @@
+name: ci
+on:
+  pull_request:
+  merge_group:
+jobs:
+  classify:
+    runs-on: ubuntu-24.04
+    outputs:
+      core: ${{ steps.sieve.outputs.core }}
+      proofs: ${{ steps.sieve.outputs.proofs }}
+      gen: ${{ steps.sieve.outputs.gen }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - id: sieve
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: sieve classify --config sieve.toml --base "$BASE_SHA" --event "$EVENT_NAME" --format github-output
+  core:
+    needs: classify
+    if: "!cancelled() && (needs.classify.result != 'success' || needs.classify.outputs.core != 'false') && true"
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: cargo test -p fx-core
+  proofs:
+    needs: [classify, core]
+    if: "!cancelled() && (needs.classify.result != 'success' || needs.classify.outputs.proofs != 'false')"
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: cargo test -p fx-proofs
+  gen:
+    needs: classify
+    if: "!cancelled() && (needs.classify.result != 'success' || needs.classify.outputs.gen != 'false')"
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: cargo run --manifest-path tools/Cargo.toml -p fx-gen

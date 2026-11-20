@@ -61,3 +61,67 @@ run = "out=$(env -u GITHUB_OUTPUT sieve classify --config sieve.toml --paths-fil
 plant = "ci-controls/unknown-path-runs-all"
 stderr_or_stdout_matches = 'run_all \(run-all path: newtool/x\.rs is claimed by no class\)'
 timeout = 60
+
+# A Cargo.lock beside a nested [workspace] pins only that workspace's builds
+# (sieve REQ-027): changing it selects the class whose package builds there,
+# without running everything. The repository-root Cargo.lock still runs all.
+[[control]]
+id = "nested-lock-selects-gen"
+check = "sieve selects nothing for docs"
+run = "out=$(env -u GITHUB_OUTPUT sieve classify --config sieve.toml --paths-file .plant/changed.md --format github-output) && printf '%s\\n' \"$out\" && printf '%s\\n' \"$out\" | grep -qx 'run_all=false' && ! printf '%s\\n' \"$out\" | grep -q '=true$'"
+plant = "ci-controls/nested-lock-selects-gen"
+stderr_or_stdout_matches = '(?ms)^run_all=false$.*^gen=true$'
+timeout = 60
+
+# Scoped leaf-workflow edits (sieve REQ-030, opt-in with [workflows]
+# scope_leaf_edits) work only in git mode, so these controls need a base
+# commit: shallow_git = true. The run commits the planted workflow together
+# with a docs edit and classifies HEAD against the original commit. The
+# baseline commits only the docs edit and must select nothing.
+[[control]]
+id = "leaf-edit-selects-needs"
+check = "sieve selects nothing for docs (git mode)"
+run = "base=$(git rev-parse HEAD) && f=$(head -n 1 .plant/changed.md) && echo edit >> \"$f\" && git add -A && git commit -qm plant && out=$(env -u GITHUB_OUTPUT sieve classify --config sieve.toml --event pull_request --base \"$base\" --format github-output) && printf '%s\\n' \"$out\" && printf '%s\\n' \"$out\" | grep -qx 'run_all=false' && ! printf '%s\\n' \"$out\" | grep -q '=true$'"
+plant = "ci-controls/leaf-edit-selects-needs"
+stderr_or_stdout_matches = '(?ms)^run_all=false$.*^core=true$.*^proofs=true$'
+timeout = 60
+shallow_git = true
+[control.env]
+GIT_CONFIG_GLOBAL = "/dev/null"
+GIT_CONFIG_NOSYSTEM = "1"
+GIT_AUTHOR_NAME = "plant"
+GIT_AUTHOR_EMAIL = "plant@invalid"
+GIT_COMMITTER_NAME = "plant"
+GIT_COMMITTER_EMAIL = "plant@invalid"
+
+[[control]]
+id = "leaf-edit-outside-jobs-runs-all"
+check = "sieve selects nothing for docs (git mode)"
+run = "base=$(git rev-parse HEAD) && f=$(head -n 1 .plant/changed.md) && echo edit >> \"$f\" && git add -A && git commit -qm plant && out=$(env -u GITHUB_OUTPUT sieve classify --config sieve.toml --event pull_request --base \"$base\" --format github-output) && printf '%s\\n' \"$out\" && printf '%s\\n' \"$out\" | grep -qx 'run_all=false' && ! printf '%s\\n' \"$out\" | grep -q '=true$'"
+plant = "ci-controls/leaf-edit-outside-jobs-runs-all"
+stderr_or_stdout_matches = 'run_all \(run-all path: \.github/workflows/ci\.yml is CI and not a scoped leaf-workflow edit: \.github/workflows/ci\.yml changed outside `jobs:`'
+timeout = 60
+shallow_git = true
+[control.env]
+GIT_CONFIG_GLOBAL = "/dev/null"
+GIT_CONFIG_NOSYSTEM = "1"
+GIT_AUTHOR_NAME = "plant"
+GIT_AUTHOR_EMAIL = "plant@invalid"
+GIT_COMMITTER_NAME = "plant"
+GIT_COMMITTER_EMAIL = "plant@invalid"
+
+[[control]]
+id = "leaf-edit-if-runs-all"
+check = "sieve selects nothing for docs (git mode)"
+run = "base=$(git rev-parse HEAD) && f=$(head -n 1 .plant/changed.md) && echo edit >> \"$f\" && git add -A && git commit -qm plant && out=$(env -u GITHUB_OUTPUT sieve classify --config sieve.toml --event pull_request --base \"$base\" --format github-output) && printf '%s\\n' \"$out\" && printf '%s\\n' \"$out\" | grep -qx 'run_all=false' && ! printf '%s\\n' \"$out\" | grep -q '=true$'"
+plant = "ci-controls/leaf-edit-if-runs-all"
+stderr_or_stdout_matches = 'run_all \(run-all path: \.github/workflows/ci\.yml is CI and not a scoped leaf-workflow edit: \.github/workflows/ci\.yml: job core changed its `if:`'
+timeout = 60
+shallow_git = true
+[control.env]
+GIT_CONFIG_GLOBAL = "/dev/null"
+GIT_CONFIG_NOSYSTEM = "1"
+GIT_AUTHOR_NAME = "plant"
+GIT_AUTHOR_EMAIL = "plant@invalid"
+GIT_COMMITTER_NAME = "plant"
+GIT_COMMITTER_EMAIL = "plant@invalid"
