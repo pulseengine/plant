@@ -4,9 +4,9 @@
 #   scripts/sieve-controls.sh PLANT_BIN
 #
 # The archive is fetched by URL and checked against a digest pinned here. The
-# digests are copied from sieve v0.2.0's SHA256SUMS.txt, which was verified
+# digests are copied from sieve v0.3.0's SHA256SUMS.txt, which was verified
 # with cosign against
-# https://github.com/pulseengine/sieve/.github/workflows/release.yml@refs/tags/v0.2.0
+# https://github.com/pulseengine/sieve/.github/workflows/release.yml@refs/tags/v0.3.0
 # when this pin was set. Moving the pin is a reviewed change to this file.
 # The fixture is copied into a throwaway git repository, since plant runs on
 # HEAD, and plant runs there with this sieve first on PATH.
@@ -14,7 +14,7 @@
 # Exit: plant's own exit code; 2 if sieve cannot be fetched or does not match.
 set -euo pipefail
 
-SIEVE_VERSION=v0.2.0
+SIEVE_VERSION=v0.3.0
 
 plant=$1; shift
 case $plant in /*) ;; *) plant="$PWD/$plant" ;; esac
@@ -22,13 +22,11 @@ root=$(cd "$(dirname "$0")/.." && pwd)
 
 case "$(uname -s)-$(uname -m)" in
   Linux-x86_64) target=x86_64-unknown-linux-musl
-    sha=c052a0b6342955dfb546baf32430b5a408fd42b472f33bc63fb4fc61dc6d637c ;;
+    sha=aae674edf2c454ae5047409f571160f4615ef67f901b2e55628e8b756fb69b40 ;;
   Linux-aarch64) target=aarch64-unknown-linux-musl
-    sha=8a8ca4b9862e59b33c8fcf39944cd822af9b72de0ce1e956a252b293d02df083 ;;
+    sha=b8e8cd3167ae3adcbecdcb7081fedf66430ff671d97537597890c31a01fc3e0d ;;
   Darwin-arm64) target=aarch64-apple-darwin
-    sha=d77ef628f094a773bf7f52d052923b910d878c0dc94e2091b7e1e9d67fd8d5e0 ;;
-  Darwin-x86_64) target=x86_64-apple-darwin
-    sha=60765891b22dc1f9b7d4b643f01fb1795e32c339d7a14ebd02be81e44afe3cb1 ;;
+    sha=efed52ba2bbdb34d3da609cf65d9b37d57bc10977148973ed91836dd76523788 ;;
   *) echo "sieve-controls: no pinned sieve for $(uname -s)-$(uname -m)" >&2; exit 2 ;;
 esac
 
