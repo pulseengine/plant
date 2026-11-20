@@ -1,0 +1,11 @@
+# Blind spot: the same assume, written only in a comment. It is not code and
+# narrows nothing, so the real gate stays green and this control must
+# report FAIL-OPEN.
+
+[[control]]
+id = "kani-assume-in-comment"
+check = "proof check with assume ledger"
+run = "./check.sh"
+plant = "ci-controls/kani-assume-in-comment"
+stderr_or_stdout_matches = 'assume not in assumes\.ledger'
+timeout = 900

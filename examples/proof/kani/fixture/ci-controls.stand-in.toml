@@ -1,0 +1,11 @@
+# Negative control for the pack: a stand-in gate that only runs the harness
+# (plain cargo kani). It must report FAIL-OPEN: a harness narrowed by a new
+# assume still verifies, which is what the ledger exists to catch.
+
+[[control]]
+id = "kani-narrowing-assume"
+check = "kani only"
+run = "cargo kani --output-format terse"
+plant = "ci-controls/kani-narrowing-assume"
+stderr_or_stdout_matches = 'assume not in assumes\.ledger'
+timeout = 900
