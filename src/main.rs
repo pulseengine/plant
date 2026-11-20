@@ -6,6 +6,7 @@ mod control;
 mod docs;
 mod guard;
 mod manifest;
+mod northstar;
 mod report;
 mod runner;
 mod scratch;
@@ -45,6 +46,17 @@ struct Cli {
 enum Cmd {
     /// Show embedded documentation; without a topic, list the topics
     Docs { topic: Option<String> },
+    /// Write the North Star indicator input (north-star-input.<Ox>.json) from a facts file
+    NorthStar {
+        /// The facts file, e.g. north-star/O3.toml
+        input: PathBuf,
+        /// The release version the input belongs to, e.g. v0.4.0
+        #[arg(long)]
+        version: String,
+        /// RFC 3339 timestamp to record (default: now, UTC)
+        #[arg(long)]
+        generated_at: Option<String>,
+    },
     /// Check that no workflow can route a fork pull request to a self-hosted runner
     Guard {
         /// Repository root holding .github/workflows
@@ -67,6 +79,23 @@ enum Format {
 
 fn main() -> ExitCode {
     let cli = Cli::parse();
+    if let Some(Cmd::NorthStar {
+        input,
+        version,
+        generated_at,
+    }) = &cli.command
+    {
+        return match northstar::run(input, version, generated_at.as_deref()) {
+            Ok(json) => {
+                println!("{json}");
+                ExitCode::SUCCESS
+            }
+            Err(e) => {
+                eprintln!("plant north-star: {e}");
+                ExitCode::from(2)
+            }
+        };
+    }
     if let Some(Cmd::Guard {
         dir,
         config,

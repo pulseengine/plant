@@ -206,6 +206,16 @@ jobs:
           tar -czf "release-assets/plant-${BARE}-docs.tar.gz" -C docs-out .
           tar -tzf "release-assets/plant-${BARE}-docs.tar.gz"
 
+      # The North Star O3 input (seam pulseengine.eu#393): one file per
+      # objective, named for it, inside the signed sums. Written by the
+      # released binary from the committed facts file.
+      - name: North Star O3 input
+        run: |
+          set -euo pipefail
+          bin/plant north-star north-star/O3.toml --version "$VERSION" \
+            > release-assets/north-star-input.O3.json
+          grep -q '"objective": "O3"' release-assets/north-star-input.O3.json
+
       # Inside the sums, so it is signed. The archives were built in the
       # build-binaries jobs with the same pinned toolchain action.
       - name: Capture build environment

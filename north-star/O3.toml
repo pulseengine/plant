@@ -1,0 +1,125 @@
+# plant's O3 input (docs/plan/v0.4.0.md, bet A), written into each release
+# as north-star-input.O3.json by `plant north-star` (seam pulseengine.eu#393).
+#
+# One fact per proof-carrying repository and kind:
+#   proof_check_required  the proof check is a required check and goes red on
+#                         a planted hole;
+#   axiom_audit           an axiom audit goes red on a planted axiom;
+#   ledger                a trust-escape ledger goes red on a planted
+#                         input-narrowing assumption.
+# A fact is ran = true only once a plant pack control has run against that
+# repository's own gate; then it names the run as evidence and says whether
+# the planted control turned it red. Until then it is ran = false, which
+# pulseengine.eu counts as failed. The repository list is from plant#25,
+# step 0 item 4.
+objective = "O3"
+not_measured = [
+  "repositories found only by GitHub code search over its index; a repository it misses is absent here",
+  "the two private repositories of the organisation",
+  "whether a passing fact's gate is the right one for that repository's proofs; a fact shows only that the named planted escape was rejected",
+]
+
+[[fact]]
+id = "pulseengine/gale/proof_check_required"
+ran = false
+detail = { repo = "pulseengine/gale", check = "proof_check_required" }
+
+[[fact]]
+id = "pulseengine/gale/axiom_audit"
+ran = false
+detail = { repo = "pulseengine/gale", check = "axiom_audit" }
+
+[[fact]]
+id = "pulseengine/gale/ledger"
+ran = false
+detail = { repo = "pulseengine/gale", check = "ledger" }
+
+[[fact]]
+id = "pulseengine/relay/proof_check_required"
+ran = false
+detail = { repo = "pulseengine/relay", check = "proof_check_required" }
+
+[[fact]]
+id = "pulseengine/relay/axiom_audit"
+ran = false
+detail = { repo = "pulseengine/relay", check = "axiom_audit" }
+
+[[fact]]
+id = "pulseengine/relay/ledger"
+ran = false
+detail = { repo = "pulseengine/relay", check = "ledger" }
+
+[[fact]]
+id = "pulseengine/synth/proof_check_required"
+ran = false
+detail = { repo = "pulseengine/synth", check = "proof_check_required" }
+
+[[fact]]
+id = "pulseengine/synth/axiom_audit"
+ran = false
+detail = { repo = "pulseengine/synth", check = "axiom_audit" }
+
+[[fact]]
+id = "pulseengine/synth/ledger"
+ran = false
+detail = { repo = "pulseengine/synth", check = "ledger" }
+
+[[fact]]
+id = "pulseengine/meld/proof_check_required"
+ran = false
+detail = { repo = "pulseengine/meld", check = "proof_check_required" }
+
+[[fact]]
+id = "pulseengine/meld/axiom_audit"
+ran = false
+detail = { repo = "pulseengine/meld", check = "axiom_audit" }
+
+[[fact]]
+id = "pulseengine/meld/ledger"
+ran = false
+detail = { repo = "pulseengine/meld", check = "ledger" }
+
+[[fact]]
+id = "pulseengine/spar/proof_check_required"
+ran = false
+detail = { repo = "pulseengine/spar", check = "proof_check_required" }
+
+[[fact]]
+id = "pulseengine/spar/axiom_audit"
+ran = false
+detail = { repo = "pulseengine/spar", check = "axiom_audit" }
+
+[[fact]]
+id = "pulseengine/spar/ledger"
+ran = false
+detail = { repo = "pulseengine/spar", check = "ledger" }
+
+[[fact]]
+id = "pulseengine/ordeal/proof_check_required"
+ran = false
+detail = { repo = "pulseengine/ordeal", check = "proof_check_required" }
+
+[[fact]]
+id = "pulseengine/ordeal/axiom_audit"
+ran = false
+detail = { repo = "pulseengine/ordeal", check = "axiom_audit" }
+
+[[fact]]
+id = "pulseengine/ordeal/ledger"
+ran = false
+detail = { repo = "pulseengine/ordeal", check = "ledger" }
+
+[[fact]]
+id = "pulseengine/loom/proof_check_required"
+ran = false
+detail = { repo = "pulseengine/loom", check = "proof_check_required" }
+
+[[fact]]
+id = "pulseengine/loom/axiom_audit"
+ran = false
+detail = { repo = "pulseengine/loom", check = "axiom_audit" }
+
+[[fact]]
+id = "pulseengine/loom/ledger"
+ran = false
+detail = { repo = "pulseengine/loom", check = "ledger" }
