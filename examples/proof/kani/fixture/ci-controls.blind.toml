@@ -9,3 +9,4 @@ run = "./check.sh"
 plant = "ci-controls/kani-assume-in-comment"
 stderr_or_stdout_matches = 'assume not in assumes\.ledger'
 timeout = 900
+shallow_git = true

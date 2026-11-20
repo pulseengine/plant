@@ -42,6 +42,7 @@ const MANIFEST: &str = r#"ci-controls.toml lives at the repository root: an arra
   stderr_or_stdout_matches = "nothing ran"       # optional regex over the planted output
   timeout  = 300                                 # optional, seconds per run
   baseline = true                                # optional; false skips the green half
+  shallow_git = false                            # optional; true gives the copy a depth-1 .git
   [control.env]                                  # optional extra environment, both runs
   KEY = "value"
 
@@ -82,6 +83,11 @@ const MECHANICS: &str = "\
 - The scratch copy has no .git directory, and is what `git archive` gives:
   export-ignore files are missing, export-subst files are expanded, and
   submodules are absent.
+- With shallow_git = true the copy is instead a depth-1 git checkout of HEAD
+  (real commit id, no remote, no tags), and the plant is left uncommitted, so
+  a check can compare the tree with its base commit (`git diff HEAD`), for
+  example a ledger that may only shrink. export-ignore and export-subst do
+  not apply to it. It costs a fetch per run.
 - Symlinks in a plant must point inside the scratch copy.
 - On SIGINT or SIGTERM plant kills the running check's process group,
   removes its temp dir and exits 2.

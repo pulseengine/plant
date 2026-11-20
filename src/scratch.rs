@@ -136,6 +136,27 @@ pub fn export_head(root: &Path, dest: &Path) -> Result<(), String> {
     Ok(())
 }
 
+/// Check out HEAD of `root` into the new directory `dest` as a shallow git
+/// repository (depth 1, no remote, no tags), for checks that compare the
+/// tree against its base commit. HEAD keeps its real commit id; the
+/// repository at `root` is only read.
+pub fn shallow_checkout(root: &Path, dest: &Path) -> Result<(), String> {
+    let sha = git_out(root, &["rev-parse", "--verify", "--quiet", "HEAD^{commit}"])
+        .map_err(|_| format!("{} has no commit to export (HEAD)", root.display()))?;
+    let sha = sha.trim();
+    let root_abs =
+        fs::canonicalize(root).map_err(|e| format!("cannot resolve {}: {e}", root.display()))?;
+    let src = root_abs.to_string_lossy();
+    fs::create_dir(dest).map_err(|e| format!("cannot create {}: {e}", dest.display()))?;
+    git_out(dest, &["init", "-q"])?;
+    git_out(
+        dest,
+        &["fetch", "-q", "--depth", "1", "--no-tags", &src, sha],
+    )?;
+    git_out(dest, &["checkout", "-q", "--detach", sha])?;
+    Ok(())
+}
+
 /// True when tracked files differ from HEAD (those edits are not under test).
 pub fn tracked_changes(root: &Path) -> bool {
     git_out(root, &["status", "--porcelain", "--untracked-files=no"])

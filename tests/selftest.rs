@@ -791,3 +791,66 @@ fn cli_conventions() {
     }
     assert_eq!(plant(&["docs", "nope"]).status.code(), Some(2));
 }
+
+// ── shallow_git: a base commit for checks that compare against it ──────────
+
+fn head_sha(repo: &Path) -> String {
+    let out = Command::new("git")
+        .arg("-C")
+        .arg(repo)
+        .args(["rev-parse", "HEAD"])
+        .output()
+        .unwrap();
+    String::from_utf8_lossy(&out.stdout).trim().to_string()
+}
+
+// A check that compares the tree with HEAD (a ledger that may only shrink)
+// works with shallow_git: the scratch HEAD is the repository's real HEAD, has
+// no remote, and the plant shows as an uncommitted change.
+// rivet: verifies REQ-015
+#[test]
+fn shallow_git_gives_the_check_its_base_commit() {
+    let f = Fixture::new("shallow");
+    let sha = head_sha(&f.repo);
+    let run = format!(
+        "[ \"$(git rev-parse HEAD)\" = {sha} ] || {{ echo wrong head; exit 9; }}; \
+         [ -z \"$(git remote)\" ] || {{ echo has a remote; exit 9; }}; \
+         git diff --exit-code HEAD -- data.txt"
+    );
+    f.manifest(
+        "m.toml",
+        &ctl(
+            "grew",
+            &run,
+            "plants/bad",
+            "shallow_git = true\nstderr_or_stdout_matches = '\\+bad'",
+        ),
+    );
+    let r = f.run_json("m.toml");
+    let c = r.control("grew");
+    assert_verdict(&c, "PASS", "exited 1");
+    assert_eq!(c["baseline"], "green");
+    assert_eq!(r.code, 0);
+}
+
+// The broken twin: the same check without shallow_git has no base commit, so
+// its baseline is red and the control FAILS rather than passing on nothing.
+// rivet: verifies REQ-015
+#[test]
+fn without_shallow_git_the_compare_check_has_no_base() {
+    let f = Fixture::new("noshallow");
+    f.manifest(
+        "m.toml",
+        &ctl(
+            "grew",
+            "git diff --exit-code HEAD -- data.txt",
+            "plants/bad",
+            "",
+        ),
+    );
+    let r = f.run_json("m.toml");
+    let c = r.control("grew");
+    assert_eq!(c["status"], "FAIL", "{c}");
+    assert_ne!(c["baseline"], "green", "{c}");
+    assert_eq!(r.code, 1);
+}

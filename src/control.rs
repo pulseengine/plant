@@ -142,7 +142,11 @@ fn attempt(
     let fresh = || -> Result<(), String> {
         scratch::force_remove(scratch_dir)
             .map_err(|e| format!("cannot reset the scratch copy: {e}"))?;
-        scratch::copy_tree(head, scratch_dir).map_err(|e| format!("cannot copy HEAD: {e}"))
+        if c.shallow_git {
+            scratch::shallow_checkout(root, scratch_dir)
+        } else {
+            scratch::copy_tree(head, scratch_dir).map_err(|e| format!("cannot copy HEAD: {e}"))
+        }
     };
 
     if c.baseline {

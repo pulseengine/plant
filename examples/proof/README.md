@@ -40,7 +40,8 @@ repository's proofs sound.
 ## kani
 
 The gate is `cargo kani`, followed by a ledger check: every `kani::assume`
-in `src/` must be listed in `assumes.ledger`. Comment lines are not code. The
+in `src/` must be listed in `assumes.ledger`, and the ledger may not have
+more entries than HEAD's copy. Comment lines are not code. The
 O3 indicator counts input-narrowing assumptions in the ledger, and its guard
 says they may only shrink, because a bug outside the assumed range is
 invisible to the proof.
@@ -48,10 +49,14 @@ invisible to the proof.
 | control | planted change | the gate rejects it because |
 |---|---|---|
 | kani-narrowing-assume | a new `kani::assume(x < 50)` in the harness | it is not in `assumes.ledger` |
+| kani-ledger-growth | the same assume, also added to `assumes.ledger` | the ledger grew from 1 to 2 entries against HEAD |
 | kani-assume-in-comment (blind) | the same assume, only as a comment | it doesn't: a comment narrows nothing |
 
+The growth check compares with HEAD, so these controls set `shallow_git = true`:
+the scratch copy is then a depth-1 checkout of HEAD with the plant left
+uncommitted. Without it the gate has no base commit and its baseline is red.
 Plain `cargo kani` still verifies the narrowed harness, so the stand-in must
-report FAIL-OPEN.
+report FAIL-OPEN for both planted assumes.
 
-Measured on 2026-11-20 with Kani 0.67.0: real gate 1 of 1 PASS, stand-in 1
-of 1 FAIL-OPEN, blind 1 of 1 FAIL-OPEN.
+Measured on 2026-11-20 with Kani 0.68.0 locally (CI pins 0.67.0): real gate
+2 of 2 PASS, stand-in 2 of 2 FAIL-OPEN, blind 1 of 1 FAIL-OPEN.

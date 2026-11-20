@@ -1,0 +1,4 @@
+# Every kani::assume in src/, one per line as `file: text`. The ledger may
+# only shrink: an assume that is not listed here fails the gate.
+src/lib.rs: kani::assume(x <= 1_000_000);
+src/lib.rs: kani::assume(x < 50);

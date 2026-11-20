@@ -9,3 +9,12 @@ run = "cargo kani --output-format terse"
 plant = "ci-controls/kani-narrowing-assume"
 stderr_or_stdout_matches = 'assume not in assumes\.ledger'
 timeout = 900
+
+[[control]]
+id = "kani-ledger-growth"
+check = "kani only"
+run = "cargo kani --output-format terse"
+plant = "ci-controls/kani-ledger-growth"
+stderr_or_stdout_matches = 'ledger: grew'
+timeout = 900
+shallow_git = true
