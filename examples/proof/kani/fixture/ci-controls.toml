@@ -10,3 +10,13 @@ run = "./check.sh"
 plant = "ci-controls/kani-narrowing-assume"
 stderr_or_stdout_matches = 'assume not in assumes\.ledger:\s+src/lib\.rs: kani::assume\(x < 50\);'
 timeout = 900
+shallow_git = true
+
+[[control]]
+id = "kani-ledger-growth"
+check = "proof check with assume ledger"
+run = "./check.sh"
+plant = "ci-controls/kani-ledger-growth"
+stderr_or_stdout_matches = 'ledger: grew from 1 to 2 entries; it may only shrink'
+timeout = 900
+shallow_git = true

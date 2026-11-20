@@ -18,6 +18,7 @@ const KNOWN_KEYS: &[&str] = &[
     "timeout",
     "baseline",
     "env",
+    "shallow_git",
 ];
 
 #[derive(Debug)]
@@ -30,6 +31,7 @@ pub struct Control {
     pub timeout: f64,
     pub baseline: bool,
     pub env: BTreeMap<String, String>,
+    pub shallow_git: bool,
 }
 
 pub fn load(path: &Path) -> Result<Vec<Control>, String> {
@@ -133,6 +135,12 @@ fn control(t: &Table, i: usize) -> Result<Control, String> {
         Some(_) => return Err(format!("{where_}: `baseline` must be true or false")),
     };
 
+    let shallow_git = match t.get("shallow_git") {
+        None => false,
+        Some(Value::Boolean(b)) => *b,
+        Some(_) => return Err(format!("{where_}: `shallow_git` must be true or false")),
+    };
+
     let mut env = BTreeMap::new();
     match t.get("env") {
         None => {}
@@ -158,6 +166,7 @@ fn control(t: &Table, i: usize) -> Result<Control, String> {
         timeout,
         baseline,
         env,
+        shallow_git,
     })
 }
 
@@ -174,6 +183,7 @@ mod tests {
         assert_eq!(c.timeout, DEFAULT_TIMEOUT);
         assert!(c.baseline);
         assert!(c.regex.is_none());
+        assert!(!c.shallow_git);
     }
 
     // rivet: verifies REQ-003
@@ -187,6 +197,7 @@ mod tests {
             (format!("{MIN}timeout = 1e300\n"), "timeout"),
             (format!("{MIN}timeout = nan\n"), "timeout"),
             (format!("{MIN}baseline = \"no\"\n"), "baseline"),
+            (format!("{MIN}shallow_git = 1\n"), "shallow_git"),
             (
                 format!("{MIN}stderr_or_stdout_matches = \"(\"\n"),
                 "bad regex",
@@ -208,11 +219,12 @@ mod tests {
     fn accepts_full_control() {
         let text = format!(
             "{MIN}expect = \"fail\"\nstderr_or_stdout_matches = \"R7\"\n\
-             timeout = 1.5\nbaseline = false\n[control.env]\nK = \"v\"\n"
+             timeout = 1.5\nbaseline = false\nshallow_git = true\n[control.env]\nK = \"v\"\n"
         );
         let c = &parse(&text).unwrap()[0];
         assert_eq!(c.timeout, 1.5);
         assert!(!c.baseline);
+        assert!(c.shallow_git);
         assert_eq!(c.env.get("K").map(String::as_str), Some("v"));
     }
 
