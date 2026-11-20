@@ -120,6 +120,10 @@ job under a trigger other than push, pull_request, schedule,
 workflow_dispatch, merge_group or release fails. A run that finds no
 self-hosted selection fails: it compared nothing.
 
+Anchors and aliases are resolved before judging: a guard stated once as
+`runs-on: &guard ...` and reused as `runs-on: *guard` is judged at every
+alias, so an aliased fail-open guard fails on each job that uses it.
+
 merge_group is trusted as in relay's original: code from a fork runs on
 self-hosted once a maintainer queues the pull request.
 
