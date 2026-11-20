@@ -36,6 +36,7 @@ fn inputs(package: &str, ws: &str, target: &Path) -> BTreeSet<String> {
         .args([
             "build",
             "--offline",
+            "--locked",
             "--quiet",
             "--message-format=json",
             "-p",
@@ -92,6 +93,7 @@ fn workspace_of(manifest: &str) -> String {
         .args([
             "metadata",
             "--offline",
+            "--locked",
             "--format-version",
             "1",
             "--no-deps",
