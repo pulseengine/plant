@@ -1,0 +1,28 @@
+# Controls for the lockfile gate (scripts/lockfiles.sh, CI job "lockfiles").
+# Each plants a bad lock in the nested workspace examples/sieve/fixture/tools,
+# the one a gate that reads only the root Cargo.lock never sees. Run:
+#   plant ci-controls.lockfiles.toml   (needs cargo-audit)
+
+[[control]]
+id = "lock-stale-nested"
+check = "lockfiles"
+run = "scripts/lockfiles.sh"
+plant = "lock-controls/lock-stale"
+stderr_or_stdout_matches = 'tools/Cargo\.lock: not binding'
+timeout = 600
+
+[[control]]
+id = "lock-missing-nested"
+check = "lockfiles"
+run = "scripts/lockfiles.sh"
+plant = "lock-controls/lock-missing"
+stderr_or_stdout_matches = 'tools/Cargo\.lock: no Cargo\.lock'
+timeout = 600
+
+[[control]]
+id = "lock-vulnerable-nested"
+check = "lockfiles"
+run = "scripts/lockfiles.sh"
+plant = "lock-controls/lock-vulnerable"
+stderr_or_stdout_matches = '(?s)RUSTSEC-2020-0071.*tools/Cargo\.lock: cargo audit reported findings'
+timeout = 600

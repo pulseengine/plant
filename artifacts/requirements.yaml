@@ -273,3 +273,14 @@ artifacts:
     links:
       - type: satisfies
         target: SSC-3
+
+  - id: REQ-031
+    type: requirement
+    title: plant's CI holds every Cargo.lock in the tree committed, audited and binding
+    status: implemented
+    description: >
+      Every Cargo workspace in plant's tree, nested fixture workspaces included, shall have a committed Cargo.lock that cargo-audit reads clean and that `cargo metadata --locked` would not change; the build and test steps shall run with --locked. Workspaces are found from the Cargo.toml files, not from a list. Verified by ci-controls.lockfiles.toml, which plants a stale, a missing and a vulnerable lock in the nested workspace examples/sieve/fixture/tools; a gate that reads only the root lock turns all three FAIL-OPEN. Lockfile sweep, 2026-11-20.
+    fields: {priority: should, category: functional}
+    links:
+      - type: satisfies
+        target: SC-1

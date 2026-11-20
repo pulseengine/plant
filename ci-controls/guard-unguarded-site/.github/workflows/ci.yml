@@ -39,9 +39,9 @@ jobs:
       - name: fmt
         run: cargo fmt --all -- --check
       - name: clippy
-        run: cargo clippy --all-targets -- -D warnings
+        run: cargo clippy --locked --all-targets -- -D warnings
       - name: test
-        run: cargo test --all-targets --no-fail-fast
+        run: cargo test --locked --all-targets --no-fail-fast
       # plant guard on plant's own workflows (labels in plant-guard.toml).
       # Controls guard-unguarded-site and guard-bad-label plant a ci.yml it
       # must reject.
@@ -84,6 +84,29 @@ jobs:
         run: |
           cargo build --locked
           scripts/sieve-controls.sh target/debug/plant
+
+  lockfiles:
+    name: lockfiles
+    # Fork PRs never reach self-hosted runners (fail-closed same-repo guard).
+    runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && fromJSON('["self-hosted","linux","x64","light"]') || 'ubuntu-24.04' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dtolnay/rust-toolchain@39008827e6b4319a349e9a42dfc90579dd25f1ca # stable, 2026-11-15
+        with:
+          toolchain: stable
+      - name: install cargo-audit
+        run: cargo install --locked cargo-audit --version 0.22.1
+      # Every Cargo workspace in the tree, nested fixtures included: a
+      # committed Cargo.lock, cargo audit clean, and binding under --locked.
+      - name: lockfile gate
+        run: scripts/lockfiles.sh
+      # Controls lock-stale-nested, lock-missing-nested and
+      # lock-vulnerable-nested plant bad locks in a nested workspace; a gate
+      # that reads only the root lock turns them FAIL-OPEN.
+      - name: plant on ci-controls.lockfiles.toml
+        run: |
+          cargo build --locked
+          target/debug/plant ci-controls.lockfiles.toml
 
   rivet:
     name: rivet validate

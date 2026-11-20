@@ -99,3 +99,38 @@ fn plants_own_workflows_pass() {
     let out = guard(Path::new(env!("CARGO_MANIFEST_DIR")), &[]);
     assert_eq!(out.status.code(), Some(0), "{out:?}");
 }
+
+/// synth#1768: one runs-on guard stated as an anchor, 56 jobs aliasing it
+/// (synth's ci.yml is at the 512 KB workflow limit).
+fn aliased(guard_expr: &str, jobs: usize) -> String {
+    let mut w = format!("on: [pull_request]\njobs:\n  j0:\n    runs-on: &guard {guard_expr}\n");
+    for i in 1..jobs {
+        w.push_str(&format!("  j{i}:\n    runs-on: *guard\n"));
+    }
+    w
+}
+
+// rivet: verifies REQ-011
+#[test]
+fn an_aliased_fail_closed_guard_passes() {
+    let expr = "${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && fromJSON('[\"self-hosted\",\"light\"]') || 'ubuntu-24.04' }}";
+    let r = repo("alias-ok", Some(&aliased(expr, 56)), Some(LABELS));
+    let out = guard(&r.0, &[]);
+    assert_eq!(out.status.code(), Some(0), "{out:?}");
+    assert!(String::from_utf8_lossy(&out.stdout).contains("OK (56 self-hosted line(s)"));
+}
+
+// rivet: verifies REQ-011
+#[test]
+fn an_aliased_fail_open_guard_fails_on_every_alias() {
+    let expr = "${{ github.event.pull_request.head.repo.fork && 'ubuntu-24.04' || fromJSON('[\"self-hosted\",\"light\"]') }}";
+    let r = repo("alias-open", Some(&aliased(expr, 56)), Some(LABELS));
+    let out = guard(&r.0, &[]);
+    assert_eq!(out.status.code(), Some(1), "{out:?}");
+    let text = String::from_utf8_lossy(&out.stdout);
+    assert!(text.contains("FAIL  56 violation(s)"), "{text}");
+    assert!(
+        text.contains("(j55)"),
+        "the last alias must be judged: {text}"
+    );
+}

@@ -320,3 +320,18 @@ artifacts:
     links:
       - type: satisfies
         target: REQ-018
+
+  - id: FEAT-016
+    type: feature
+    title: Lockfile gate with planted nested-lock controls
+    status: implemented
+    description: >
+      scripts/lockfiles.sh and the CI job lockfiles: each Cargo workspace found
+      in the tree has a committed, audited, binding Cargo.lock.
+      ci-controls.lockfiles.toml plants a stale, a missing and a vulnerable
+      nested lock.
+    fields:
+      phase: phase-2
+    links:
+      - type: satisfies
+        target: REQ-031
