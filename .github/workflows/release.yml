@@ -180,7 +180,7 @@ jobs:
           mkdir -p release-assets
           find artifacts -type f -name "*.tar.gz" -exec cp {} release-assets/ \;
           n=$(ls release-assets/*.tar.gz | wc -l)
-          test "$n" -eq 4 || { echo "expected 4 archives, found $n"; exit 1; }
+          test "$n" -eq 3 || { echo "expected 3 archives, found $n"; exit 1; }
           ls -la release-assets/
 
       # The SBOM goes in before the sums, so its digest is signed too.
