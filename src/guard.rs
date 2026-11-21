@@ -1672,7 +1672,7 @@ mod tests {
         format!("{on}\njobs:\n  baseline:\n    uses: {uses}\n    secrets: inherit\n")
     }
 
-    // rivet: verifies REQ-011
+    // rivet: verifies REQ-032
     #[test]
     fn a_trusted_sha_pinned_call_passes_and_counts() {
         let t = caller(
@@ -1692,7 +1692,7 @@ mod tests {
         );
     }
 
-    // rivet: verifies REQ-011
+    // rivet: verifies REQ-032
     #[test]
     fn a_remote_call_fails_unless_listed_and_pinned_by_sha() {
         let bad = |uses: String, c: &Config| {
@@ -1737,7 +1737,7 @@ mod tests {
         assert_eq!(check_workflow("ci.yml", &t, &jig_cfg(), false).bad.len(), 1);
     }
 
-    // rivet: verifies REQ-011
+    // rivet: verifies REQ-032
     #[test]
     fn a_trusted_call_under_an_untrusted_trigger_fails() {
         let t = caller(
@@ -1751,7 +1751,7 @@ mod tests {
         ));
     }
 
-    // rivet: verifies REQ-011
+    // rivet: verifies REQ-032
     #[test]
     fn trusted_workflows_entries_are_validated() {
         for e in [
@@ -1783,7 +1783,7 @@ mod tests {
             .is_err());
     }
 
-    // rivet: verifies REQ-011
+    // rivet: verifies REQ-032
     #[test]
     fn a_called_workflow_may_select_self_hosted_with_the_form() {
         let r = check("baseline.yml", &wf("on:\n  workflow_call:", &good("light")));
@@ -1803,7 +1803,7 @@ mod tests {
         assert!(r.bad.iter().any(|b| b.reason.contains("exempt")), "{r:?}");
     }
 
-    // rivet: verifies REQ-011
+    // rivet: verifies REQ-032
     #[test]
     fn a_local_call_under_an_untrusted_trigger_fails() {
         // The callee would pass on its own (workflow_call, the fail-closed

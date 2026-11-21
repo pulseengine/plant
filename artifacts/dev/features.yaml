@@ -283,7 +283,7 @@ artifacts:
     type: feature
     title: Required-check census and verified runner (O3 summary)
     status: draft
-    release: v0.4.0
+    release: v0.5.0
     description: >
       Draft scope for v0.4.0, pending the owner's decision. See
       docs/plan/v0.4.0.md for acceptance and kill criteria.
@@ -297,7 +297,7 @@ artifacts:
     type: feature
     title: Bundle negative controls (O2)
     status: draft
-    release: v0.4.0
+    release: v0.5.0
     description: >
       Draft scope for v0.4.0, pending the owner's decision. See
       docs/plan/v0.4.0.md for acceptance and kill criteria.
@@ -311,7 +311,7 @@ artifacts:
     type: feature
     title: plant guard as a signed WASI component (O5)
     status: draft
-    release: v0.4.0
+    release: v0.5.0
     description: >
       Draft scope for v0.4.0, pending the owner's decision. See
       docs/plan/v0.4.0.md for acceptance and kill criteria.
@@ -330,8 +330,25 @@ artifacts:
       in the tree has a committed, audited, binding Cargo.lock.
       ci-controls.lockfiles.toml plants a stale, a missing and a vulnerable
       nested lock.
+    release: v0.4.0
     fields:
       phase: phase-2
     links:
       - type: satisfies
         target: REQ-031
+
+  - id: FEAT-017
+    type: feature
+    title: plant guard trusted_workflows for SHA-pinned remote reusable workflows
+    status: implemented
+    description: >
+      plant-guard.toml key trusted_workflows; remote calls checked for entry,
+      40-hex SHA, no runs-on and trusted caller triggers; local calls get the
+      caller-trigger check; JSON gains trusted_workflow_calls. PR #34.
+    release: v0.4.0
+    fields:
+      phase: phase-2
+    links:
+      - type: satisfies
+        target: REQ-032
+

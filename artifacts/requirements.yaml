@@ -165,7 +165,8 @@ artifacts:
       pull_request, schedule, workflow_dispatch and merge_group. It shall fail
       when it finds no self-hosted selection (compared nothing), when a
       workflow does not parse as YAML, when a job has neither runs-on nor a
-      local `uses:`, or calls a reusable workflow from another repository,
+      local `uses:`, or calls a reusable workflow from another repository
+      that is not admitted by trusted_workflows,
       and exit 2 when the workflows or the config cannot be read. Ported from relay's
       scripts/check-selfhosted-fork-guard.rs (relay f852816).
     release: v0.2.0
@@ -242,7 +243,7 @@ artifacts:
     type: requirement
     title: plant census reports which required checks a planted input turned red
     status: draft
-    release: v0.4.0
+    release: v0.5.0
     description: >
       Serves O3 (summary: each claim maps to a CI check that can fail); not the O3 indicator. `plant census` shall map required contexts, workflows, manifests and CI reports to plant.census.v1, counting a context as covered only when the control is bound to its job step, went red with a regex on a green baseline, and the report is fresh, from a default-branch CI run, and from a verified plant release. plant run reports shall carry the schema plant.report.v1. Plan: bet B.
     fields: {priority: should, category: functional}
@@ -254,7 +255,7 @@ artifacts:
     type: requirement
     title: plant ships negative controls for the one-command evidence bundle
     status: draft
-    release: v0.4.0
+    release: v0.5.0
     description: >
       Serves O2 (guard: the verify command must fail when any piece of evidence is removed). examples/bundle shall hold controls that remove or alter each of the rivet trace, witness report and sigil attestation, all of which the verify command must reject, with a stand-in that only checks existence turning them FAIL-OPEN. Plan: bet C; dropped if no single verify command exists.
     fields: {priority: should, category: functional}
@@ -266,7 +267,7 @@ artifacts:
     type: requirement
     title: plant guard runs as a signed WASI component with an equivalence test
     status: draft
-    release: v0.4.0
+    release: v0.5.0
     description: >
       Serves O5 (indicator: tools and gates running as signed WASI components under kiln, wasmtime as the differential). plant guard shall build from a pure core for wasm32-wasip2, be signed in the release, and be held byte-identical to the native plant guard by a CI equivalence job under wasmtime and kiln. Plan: bet D; gated on kiln running a wasip2 command component.
     fields: {priority: should, category: functional}
@@ -280,7 +281,20 @@ artifacts:
     status: implemented
     description: >
       Every Cargo workspace in plant's tree, nested fixture workspaces included, shall have a committed Cargo.lock that cargo-audit reads clean and that `cargo metadata --locked` would not change; the build and test steps shall run with --locked. Workspaces are found from the Cargo.toml files, not from a list. Verified by ci-controls.lockfiles.toml, which plants a stale, a missing and a vulnerable lock in the nested workspace examples/sieve/fixture/tools; a gate that reads only the root lock turns all three FAIL-OPEN. Lockfile sweep, 2026-11-20.
+    release: v0.4.0
     fields: {priority: should, category: functional}
     links:
       - type: satisfies
         target: SC-1
+
+  - id: REQ-032
+    type: requirement
+    title: plant guard admits another repository's reusable workflow only when listed, SHA-pinned and called from trusted triggers
+    status: implemented
+    description: >
+      A job that calls a reusable workflow from another repository shall pass plant guard only when the call's path matches a `trusted_workflows` entry in plant-guard.toml (owner/repo/.github/workflows/<file>.yml or .yaml, `*` allowed only as the file name), the ref is a 40-hex commit SHA, the job has no runs-on, and every trigger of the calling workflow is trusted (workflow_call among them). Trusted calls count as compared. A local `./` call shall get the same caller-trigger check, so a caller under pull_request_target cannot reach a self-hosted job through a workflow_call workflow. plant#33.
+    release: v0.4.0
+    fields: {priority: must, category: functional}
+    links:
+      - type: satisfies
+        target: SSC-1
