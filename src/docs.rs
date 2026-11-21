@@ -119,7 +119,8 @@ not starting with ./) unless trusted (below), and a file that does not parse
 as YAML. A self-hosted job under a trigger other than push, pull_request, schedule,
 workflow_dispatch, merge_group, release or workflow_call fails. A called
 workflow runs under its caller's event, so the fail-closed form still sees a
-fork pull request; the caller's trigger is checked where the call is made. A run that finds no
+fork pull request; the caller's trigger is checked where the call is made, for local `./`
+calls as for trusted remote ones. A run that finds no
 self-hosted selection and no trusted workflow call fails: it compared
 nothing.
 

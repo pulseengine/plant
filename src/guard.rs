@@ -607,6 +607,10 @@ pub fn check_workflow(name: &str, text: &str, cfg: &Config, exempt: bool) -> Rep
     let mut bad = Vec::new();
     let mut seen = 0;
     let mut trusted = 0;
+    // Local `./` calls: the callee is checked as its own file, but under
+    // workflow_call it runs with this caller's event, so this caller's
+    // triggers are checked too.
+    let mut local_calls = 0;
     let odd = case_variants(doc);
     if !odd.is_empty() {
         bad.push(whole(format!(
@@ -661,7 +665,7 @@ pub fn check_workflow(name: &str, text: &str, cfg: &Config, exempt: bool) -> Rep
         let runs_on = key(job, "runs-on");
         if let Some(u) = key(job, "uses") {
             match u.as_str() {
-                Some(p) if p.starts_with("./") && runs_on.is_none() => {} // checked as its own file
+                Some(p) if p.starts_with("./") && runs_on.is_none() => local_calls += 1, // callee checked as its own file
                 Some(p) if runs_on.is_none() => match cfg.check_remote_call(p) {
                     Ok(()) => trusted += 1,
                     Err(reason) => bad.push(at("uses", reason)),
@@ -756,7 +760,7 @@ pub fn check_workflow(name: &str, text: &str, cfg: &Config, exempt: bool) -> Rep
             bad.push(at("runner", "self-hosted matrix runner in a job whose runs-on is not the fail-closed matrix form".into()));
         }
     }
-    if seen > 0 || trusted > 0 || exempt {
+    if seen > 0 || trusted > 0 || local_calls > 0 || exempt {
         match triggers(doc) {
             None => bad.push(whole(
                 "has self-hosted jobs or trusted workflow calls but no readable top-level `on:`"
@@ -774,9 +778,9 @@ pub fn check_workflow(name: &str, text: &str, cfg: &Config, exempt: bool) -> Rep
                         untrusted.join(", ")
                     )));
                 }
-                if trusted > 0 && !untrusted.is_empty() {
+                if trusted + local_calls > 0 && !untrusted.is_empty() {
                     bad.push(whole(format!(
-                        "trusted workflow calls under trigger(s) outside the allowlist: {}",
+                        "reusable workflow calls under trigger(s) outside the allowlist: {}",
                         untrusted.join(", ")
                     )));
                 }
@@ -1743,7 +1747,7 @@ mod tests {
         let r = check_workflow("ci.yml", &t, &jig_cfg(), false);
         assert_eq!(r.bad.len(), 1, "{r:?}");
         assert!(r.bad[0].reason.contains(
-            "trusted workflow calls under trigger(s) outside the allowlist: pull_request_target"
+            "reusable workflow calls under trigger(s) outside the allowlist: pull_request_target"
         ));
     }
 
@@ -1797,5 +1801,21 @@ mod tests {
             true,
         );
         assert!(r.bad.iter().any(|b| b.reason.contains("exempt")), "{r:?}");
+    }
+
+    // rivet: verifies REQ-011
+    #[test]
+    fn a_local_call_under_an_untrusted_trigger_fails() {
+        // The callee would pass on its own (workflow_call, the fail-closed
+        // form), but under pull_request_target the form selects self-hosted.
+        let t =
+            "on: [pull_request_target]\njobs:\n  c:\n    uses: ./.github/workflows/baseline.yml\n";
+        let r = check("ci.yml", t);
+        assert_eq!(r.bad.len(), 1, "{r:?}");
+        assert!(r.bad[0].reason.contains(
+            "reusable workflow calls under trigger(s) outside the allowlist: pull_request_target"
+        ));
+        let t = "on: [pull_request]\njobs:\n  c:\n    uses: ./.github/workflows/baseline.yml\n";
+        assert!(check("ci.yml", t).bad.is_empty());
     }
 }
