@@ -51,6 +51,9 @@ const MATRIX_GUARD: &str = "(github.event_name != 'pull_request' || github.event
 pub const DEFAULT_FALLBACK: &str = "ubuntu-24.04";
 /// `release` is plant's addition to relay's list: only a user with write
 /// access can publish a release, so a fork cannot cause the event.
+/// `workflow_call` (plant#33): a called workflow runs under the caller's
+/// event, so the fail-closed form still sees a fork pull request, and the
+/// caller's own trigger is checked where the call is made.
 const TRUSTED: &[&str] = &[
     "push",
     "pull_request",
@@ -58,6 +61,7 @@ const TRUSTED: &[&str] = &[
     "workflow_dispatch",
     "merge_group",
     "release",
+    "workflow_call",
 ];
 /// Triggers under which an exempt workflow may select self-hosted runners
 /// without the fail-closed form: none of them can be caused by a fork.
@@ -71,6 +75,8 @@ struct ConfigFile {
     labels: Option<Vec<String>>,
     #[serde(default)]
     exempt: Vec<Exempt>,
+    #[serde(default)]
+    trusted_workflows: Vec<String>,
 }
 
 /// `fallback = "ubuntu-24.04"` or `fallback = ["ubuntu-24.04", "ubuntu-latest"]`.
@@ -96,6 +102,9 @@ pub struct Config {
     /// The provisioned runner labels; None when the config declares none.
     pub labels: Option<BTreeSet<String>>,
     pub exempt: Vec<Exempt>,
+    /// Reusable workflows in other repositories a job may call, pinned by a
+    /// commit SHA: `owner/repo/.github/workflows/<file or *.yml>`.
+    pub trusted_workflows: Vec<String>,
 }
 
 impl Default for Config {
@@ -105,6 +114,7 @@ impl Default for Config {
             fallbacks: vec![DEFAULT_FALLBACK.into()],
             labels: None,
             exempt: vec![],
+            trusted_workflows: vec![],
         }
     }
 }
@@ -154,12 +164,44 @@ impl Config {
                 return Err(format!("exempt workflow {:?} has no reason", e.workflow));
             }
         }
+        for t in &f.trusted_workflows {
+            if !valid_trusted_entry(t) {
+                return Err(format!(
+                    "trusted_workflows entry {t:?} must be owner/repo/.github/workflows/<file>.yml, \
+                     where <file> may be `*`, with no ref and no other wildcard"
+                ));
+            }
+        }
         Ok(Config {
             fallback,
             fallbacks,
             labels,
             exempt: f.exempt,
+            trusted_workflows: f.trusted_workflows,
         })
+    }
+
+    /// Ok when `uses` names a trusted workflow pinned by a commit SHA; Err
+    /// carries the violation.
+    fn check_remote_call(&self, uses: &str) -> Result<(), String> {
+        let Some((path, pin)) = uses.split_once('@') else {
+            return Err(format!("reusable workflow {uses:?} has no @ref"));
+        };
+        if !self
+            .trusted_workflows
+            .iter()
+            .any(|t| trusted_matches(t, path))
+        {
+            return Err(format!(
+                "job calls a reusable workflow outside this repository that is not in {CONFIG_FILE} trusted_workflows; the runners it selects are not visible here"
+            ));
+        }
+        if pin.len() != 40 || !pin.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f')) {
+            return Err(format!(
+                "trusted workflow is called at {pin:?}; it must be pinned by a 40-hex commit SHA, since a tag or branch can move"
+            ));
+        }
+        Ok(())
     }
 
     /// True when `tail` ends the single-label form with an accepted fallback.
@@ -203,9 +245,43 @@ impl fmt::Display for Violation {
     }
 }
 
+/// `owner/repo/.github/workflows/<file>` with `<file>` a .yml/.yaml name or
+/// `*.yml`/`*.yaml`; owner and repo have no wildcard and no `..`.
+fn valid_trusted_entry(t: &str) -> bool {
+    let parts: Vec<&str> = t.split('/').collect();
+    let [owner, repo, ".github", "workflows", file] = parts.as_slice() else {
+        return false;
+    };
+    let plain = |s: &str| {
+        !s.is_empty()
+            && s != "."
+            && s != ".."
+            && s.bytes()
+                .all(|b| b.is_ascii_alphanumeric() || b"-_.".contains(&b))
+    };
+    let stem = file
+        .strip_suffix(".yml")
+        .or_else(|| file.strip_suffix(".yaml"));
+    plain(owner) && plain(repo) && matches!(stem, Some(s) if s == "*" || plain(s))
+}
+
+/// `path` is the part of `uses:` before `@`.
+fn trusted_matches(entry: &str, path: &str) -> bool {
+    match entry.rsplit_once("/*") {
+        Some((dir, ext)) => path
+            .strip_prefix(dir)
+            .and_then(|rest| rest.strip_prefix('/'))
+            .and_then(|f| f.strip_suffix(ext))
+            .is_some_and(|stem| !stem.is_empty() && !stem.contains('/') && !stem.starts_with('.')),
+        None => entry == path,
+    }
+}
+
 #[derive(Debug, PartialEq)]
 pub struct Report {
     pub seen: usize,
+    /// Jobs that call a trusted, SHA-pinned reusable workflow.
+    pub trusted: usize,
     pub bad: Vec<Violation>,
 }
 
@@ -487,19 +563,21 @@ pub fn check_workflow(name: &str, text: &str, cfg: &Config, exempt: bool) -> Rep
     if text.len() > MAX_BYTES {
         return Report {
             seen: 0,
+            trusted: 0,
             bad: vec![whole(format!(
                 "is larger than {MAX_BYTES} bytes; not checked, so not passed"
             ))],
         };
     }
     if expanded_nodes(text).is_some_and(|n| n > MAX_EXPANDED) {
-        return Report { seen: 0, bad: vec![whole(format!("expands to more than {MAX_EXPANDED} bytes through aliases; not checked, so not passed"))] };
+        return Report { seen: 0, trusted: 0, bad: vec![whole(format!("expands to more than {MAX_EXPANDED} bytes through aliases; not checked, so not passed"))] };
     }
     let docs = match YamlLoader::load_from_str(text) {
         Ok(d) => d,
         Err(e) => {
             return Report {
                 seen: 0,
+                trusted: 0,
                 bad: vec![whole(format!(
                     "cannot be read as YAML ({e}); not checked, so not passed"
                 ))],
@@ -511,6 +589,7 @@ pub fn check_workflow(name: &str, text: &str, cfg: &Config, exempt: bool) -> Rep
         _ => {
             return Report {
                 seen: 0,
+                trusted: 0,
                 bad: vec![whole("is not a single YAML mapping".into())],
             }
         }
@@ -518,6 +597,7 @@ pub fn check_workflow(name: &str, text: &str, cfg: &Config, exempt: bool) -> Rep
     if has_merge_key(&docs[0]) {
         return Report {
             seen: 0,
+            trusted: 0,
             bad: vec![whole(
                 "uses a YAML merge key (<<); merged values are not checked, so not passed".into(),
             )],
@@ -526,6 +606,7 @@ pub fn check_workflow(name: &str, text: &str, cfg: &Config, exempt: bool) -> Rep
     let matrix_forms = cfg.matrix_forms();
     let mut bad = Vec::new();
     let mut seen = 0;
+    let mut trusted = 0;
     let odd = case_variants(doc);
     if !odd.is_empty() {
         bad.push(whole(format!(
@@ -581,6 +662,10 @@ pub fn check_workflow(name: &str, text: &str, cfg: &Config, exempt: bool) -> Rep
         if let Some(u) = key(job, "uses") {
             match u.as_str() {
                 Some(p) if p.starts_with("./") && runs_on.is_none() => {} // checked as its own file
+                Some(p) if runs_on.is_none() => match cfg.check_remote_call(p) {
+                    Ok(()) => trusted += 1,
+                    Err(reason) => bad.push(at("uses", reason)),
+                },
                 _ => bad.push(at(
                     "uses",
                     "job calls a reusable workflow outside this repository; the runners it selects are not visible here".into(),
@@ -671,10 +756,11 @@ pub fn check_workflow(name: &str, text: &str, cfg: &Config, exempt: bool) -> Rep
             bad.push(at("runner", "self-hosted matrix runner in a job whose runs-on is not the fail-closed matrix form".into()));
         }
     }
-    if seen > 0 || exempt {
+    if seen > 0 || trusted > 0 || exempt {
         match triggers(doc) {
             None => bad.push(whole(
-                "has self-hosted jobs but no readable top-level `on:`".into(),
+                "has self-hosted jobs or trusted workflow calls but no readable top-level `on:`"
+                    .into(),
             )),
             Some(ev) => {
                 let untrusted: Vec<_> = ev
@@ -685,6 +771,12 @@ pub fn check_workflow(name: &str, text: &str, cfg: &Config, exempt: bool) -> Rep
                 if seen > 0 && !untrusted.is_empty() {
                     bad.push(whole(format!(
                         "self-hosted jobs under trigger(s) outside the allowlist: {}",
+                        untrusted.join(", ")
+                    )));
+                }
+                if trusted > 0 && !untrusted.is_empty() {
+                    bad.push(whole(format!(
+                        "trusted workflow calls under trigger(s) outside the allowlist: {}",
                         untrusted.join(", ")
                     )));
                 }
@@ -702,12 +794,14 @@ pub fn check_workflow(name: &str, text: &str, cfg: &Config, exempt: bool) -> Rep
             }
         }
     }
-    Report { seen, bad }
+    Report { seen, trusted, bad }
 }
 
 pub struct GuardRun {
     pub workflows: usize,
     pub seen: usize,
+    /// Jobs calling a trusted, SHA-pinned reusable workflow.
+    pub trusted: usize,
     pub bad: Vec<Violation>,
     pub fallback: String,
     pub fallbacks: Vec<String>,
@@ -715,7 +809,7 @@ pub struct GuardRun {
 
 impl GuardRun {
     pub fn exit_code(&self) -> u8 {
-        if self.seen == 0 || !self.bad.is_empty() {
+        if self.seen + self.trusted == 0 || !self.bad.is_empty() {
             1
         } else {
             0
@@ -755,7 +849,7 @@ pub fn run(dir: &Path, cfg: &Config) -> Result<GuardRun, String> {
         .map(|p| p.file_name().unwrap().to_string_lossy().into_owned())
         .collect();
     let exempt: BTreeSet<&str> = cfg.exempt.iter().map(|e| e.workflow.as_str()).collect();
-    let (mut seen, mut bad) = (0, Vec::new());
+    let (mut seen, mut trusted, mut bad) = (0, 0, Vec::new());
     for e in &cfg.exempt {
         if !names.contains(&e.workflow) {
             bad.push(Violation {
@@ -775,6 +869,7 @@ pub fn run(dir: &Path, cfg: &Config) -> Result<GuardRun, String> {
         let name = p.file_name().unwrap().to_string_lossy().into_owned();
         let r = check_workflow(&name, &text, cfg, exempt.contains(name.as_str()));
         seen += r.seen;
+        trusted += r.trusted;
         bad.extend(r.bad);
     }
     if seen > 0 && cfg.labels.is_none() {
@@ -790,6 +885,7 @@ pub fn run(dir: &Path, cfg: &Config) -> Result<GuardRun, String> {
     Ok(GuardRun {
         workflows: entries.len(),
         seen,
+        trusted,
         bad,
         fallback: cfg.fallback.clone(),
         fallbacks: cfg.fallbacks.clone(),
@@ -801,20 +897,25 @@ pub fn text(r: &GuardRun) -> String {
     for b in &r.bad {
         out.push_str(&format!("FAIL  {b}\n"));
     }
-    if r.seen == 0 {
+    let calls = if r.trusted > 0 {
+        format!(", {} trusted workflow call(s)", r.trusted)
+    } else {
+        String::new()
+    };
+    if r.seen + r.trusted == 0 {
         out.push_str(&format!(
-            "FAIL  no self-hosted line found in {} workflow(s): this check compared nothing",
+            "FAIL  no self-hosted line and no trusted workflow call found in {} workflow(s): this check compared nothing",
             r.workflows
         ));
     } else if !r.bad.is_empty() {
         out.push_str(&format!(
-            "FAIL  {} violation(s) across {} self-hosted line(s)",
+            "FAIL  {} violation(s) across {} self-hosted line(s){calls}",
             r.bad.len(),
             r.seen
         ));
     } else {
         out.push_str(&format!(
-            "self-hosted fork guard: OK ({} self-hosted line(s) in {} workflow(s), all fail-closed)",
+            "self-hosted fork guard: OK ({} self-hosted line(s){calls} in {} workflow(s), all fail-closed)",
             r.seen, r.workflows
         ));
     }
@@ -827,7 +928,8 @@ pub fn json(r: &GuardRun) -> String {
         "ok": r.exit_code() == 0,
         "workflows": r.workflows,
         "self_hosted_lines": r.seen,
-        "compared_nothing": r.seen == 0,
+        "trusted_workflow_calls": r.trusted,
+        "compared_nothing": r.seen + r.trusted == 0,
         "fallback": r.fallback,
         "fallbacks": r.fallbacks,
         "violations": r.bad,
@@ -850,6 +952,7 @@ mod tests {
                     .collect(),
             ),
             exempt: vec![],
+            trusted_workflows: vec![],
         }
     }
     fn check(name: &str, text: &str) -> Report {
@@ -880,6 +983,7 @@ mod tests {
             r,
             Report {
                 seen: 1,
+                trusted: 0,
                 bad: vec![]
             }
         );
@@ -946,6 +1050,7 @@ mod tests {
             r,
             Report {
                 seen: 1,
+                trusted: 0,
                 bad: vec![]
             }
         );
@@ -982,6 +1087,7 @@ mod tests {
             check("t.yml", &t),
             Report {
                 seen: 1,
+                trusted: 0,
                 bad: vec![]
             }
         );
@@ -998,6 +1104,7 @@ mod tests {
             check("t.yml", &t),
             Report {
                 seen: 1,
+                trusted: 0,
                 bad: vec![]
             }
         );
@@ -1034,6 +1141,7 @@ mod tests {
                 r,
                 Report {
                     seen: 0,
+                    trusted: 0,
                     bad: vec![]
                 },
                 "{v}"
@@ -1122,6 +1230,7 @@ mod tests {
             r,
             Report {
                 seen: 0,
+                trusted: 0,
                 bad: vec![]
             }
         );
@@ -1207,6 +1316,7 @@ mod tests {
             r,
             Report {
                 seen: 1,
+                trusted: 0,
                 bad: vec![]
             }
         );
@@ -1215,6 +1325,7 @@ mod tests {
             r,
             Report {
                 seen: 1,
+                trusted: 0,
                 bad: vec![]
             }
         );
@@ -1308,6 +1419,7 @@ mod tests {
             check("t.yml", &t),
             Report {
                 seen: 1,
+                trusted: 0,
                 bad: vec![]
             }
         );
@@ -1330,6 +1442,7 @@ mod tests {
             r,
             Report {
                 seen: 1,
+                trusted: 0,
                 bad: vec![]
             }
         );
@@ -1416,6 +1529,7 @@ mod tests {
             check_workflow("n.yml", t, &cfg(), true),
             Report {
                 seen: 1,
+                trusted: 0,
                 bad: vec![]
             }
         );
@@ -1543,5 +1657,145 @@ mod tests {
         fs::create_dir_all(d.join(".github/workflows")).unwrap();
         fs::write(d.join(".github/workflows").join(name), text).unwrap();
         TempDir(d)
+    }
+
+    // plant#33: jig callers call one SHA-pinned reusable workflow.
+    const SHA: &str = "0123456789abcdef0123456789abcdef01234567";
+    fn jig_cfg() -> Config {
+        Config::parse("trusted_workflows = [\"pulseengine/jig/.github/workflows/*.yml\"]").unwrap()
+    }
+    fn caller(on: &str, uses: &str) -> String {
+        format!("{on}\njobs:\n  baseline:\n    uses: {uses}\n    secrets: inherit\n")
+    }
+
+    // rivet: verifies REQ-011
+    #[test]
+    fn a_trusted_sha_pinned_call_passes_and_counts() {
+        let t = caller(
+            "on: [pull_request]",
+            &format!("pulseengine/jig/.github/workflows/baseline.yml@{SHA}"),
+        );
+        let r = check_workflow("ci.yml", &t, &jig_cfg(), false);
+        assert_eq!((r.seen, r.trusted, r.bad.len()), (0, 1, 0), "{r:?}");
+        // A tree whose only line is a trusted call compared something.
+        let dir = tempdir_with("ci.yml", &t);
+        let run_ = run(dir.path(), &jig_cfg()).unwrap();
+        assert_eq!(run_.exit_code(), 0);
+        assert!(
+            text(&run_).contains("1 trusted workflow call(s)"),
+            "{}",
+            text(&run_)
+        );
+    }
+
+    // rivet: verifies REQ-011
+    #[test]
+    fn a_remote_call_fails_unless_listed_and_pinned_by_sha() {
+        let bad = |uses: String, c: &Config| {
+            let r = check_workflow("ci.yml", &caller("on: [pull_request]", &uses), c, false);
+            assert_eq!((r.trusted, r.bad.len()), (0, 1), "{uses}: {r:?}");
+            r.bad[0].reason.clone()
+        };
+        let jig = "pulseengine/jig/.github/workflows/baseline.yml";
+        // Not listed: no config, another repo, a look-alike repo, a subdirectory.
+        assert!(bad(format!("{jig}@{SHA}"), &cfg())
+            .contains("not in plant-guard.toml trusted_workflows"));
+        for p in [
+            "pulseengine/other/.github/workflows/baseline.yml",
+            "pulseengine/jig-evil/.github/workflows/baseline.yml",
+            "pulseengine/jig/.github/workflows/sub/baseline.yml",
+            "pulseengine/jig/.github/workflows/.yml",
+            "pulseengine/jig/.github/workflows/baseline.yaml",
+        ] {
+            assert!(
+                bad(format!("{p}@{SHA}"), &jig_cfg()).contains("not in"),
+                "{p}"
+            );
+        }
+        // Listed, but not pinned by a full lowercase SHA.
+        for pin in [
+            "main",
+            "v1",
+            &SHA[..39],
+            &SHA.to_uppercase(),
+            &format!("{SHA}0"),
+        ] {
+            assert!(
+                bad(format!("{jig}@{pin}"), &jig_cfg()).contains("40-hex commit SHA"),
+                "{pin}"
+            );
+        }
+        assert!(bad(jig.to_string(), &jig_cfg()).contains("no @ref"));
+        // A trusted call with its own runs-on is still not visible here.
+        let t = format!(
+            "on: [pull_request]\njobs:\n  b:\n    runs-on: ubuntu-24.04\n    uses: {jig}@{SHA}\n"
+        );
+        assert_eq!(check_workflow("ci.yml", &t, &jig_cfg(), false).bad.len(), 1);
+    }
+
+    // rivet: verifies REQ-011
+    #[test]
+    fn a_trusted_call_under_an_untrusted_trigger_fails() {
+        let t = caller(
+            "on: [pull_request_target]",
+            &format!("pulseengine/jig/.github/workflows/baseline.yml@{SHA}"),
+        );
+        let r = check_workflow("ci.yml", &t, &jig_cfg(), false);
+        assert_eq!(r.bad.len(), 1, "{r:?}");
+        assert!(r.bad[0].reason.contains(
+            "trusted workflow calls under trigger(s) outside the allowlist: pull_request_target"
+        ));
+    }
+
+    // rivet: verifies REQ-011
+    #[test]
+    fn trusted_workflows_entries_are_validated() {
+        for e in [
+            "pulseengine/jig/.github/workflows/baseline.yml@main",
+            "pulseengine/*/.github/workflows/baseline.yml",
+            "pulseengine/jig/.github/workflows/*",
+            "pulseengine/jig/.github/workflows/b*.yml",
+            "pulseengine/jig/workflows/baseline.yml",
+            "../jig/.github/workflows/baseline.yml",
+            "pulseengine/jig/.github/workflows/sub/x.yml",
+            "",
+        ] {
+            let c = format!("trusted_workflows = [{e:?}]");
+            assert!(Config::parse(&c).is_err(), "{e:?} accepted");
+        }
+        let c = Config::parse(
+            "trusted_workflows = [\"pulseengine/jig/.github/workflows/baseline.yml\"]",
+        )
+        .unwrap();
+        assert!(c
+            .check_remote_call(&format!(
+                "pulseengine/jig/.github/workflows/baseline.yml@{SHA}"
+            ))
+            .is_ok());
+        assert!(c
+            .check_remote_call(&format!(
+                "pulseengine/jig/.github/workflows/other.yml@{SHA}"
+            ))
+            .is_err());
+    }
+
+    // rivet: verifies REQ-011
+    #[test]
+    fn a_called_workflow_may_select_self_hosted_with_the_form() {
+        let r = check("baseline.yml", &wf("on:\n  workflow_call:", &good("light")));
+        assert_eq!((r.seen, r.bad.len()), (1, 0), "{r:?}");
+        // workflow_call does not loosen the form, and is not exemptable.
+        let r = check(
+            "baseline.yml",
+            &wf("on: [workflow_call]", "[self-hosted, light]"),
+        );
+        assert_eq!(r.bad.len(), 1, "{r:?}");
+        let r = check_workflow(
+            "baseline.yml",
+            &wf("on: [workflow_call]", "[self-hosted, light]"),
+            &cfg(),
+            true,
+        );
+        assert!(r.bad.iter().any(|b| b.reason.contains("exempt")), "{r:?}");
     }
 }

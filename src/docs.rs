@@ -115,10 +115,13 @@ Everything else fails: plain label lists, bare labels, the fail-open
 vars or github.*, block-list or map runs-on, a matrix or include computed at
 run time, a self-hosted matrix runner outside the matrix form, a job with no
 runs-on, a merge key, a reusable workflow from another repository (`uses:`
-not starting with ./), and a file that does not parse as YAML. A self-hosted
-job under a trigger other than push, pull_request, schedule,
-workflow_dispatch, merge_group or release fails. A run that finds no
-self-hosted selection fails: it compared nothing.
+not starting with ./) unless trusted (below), and a file that does not parse
+as YAML. A self-hosted job under a trigger other than push, pull_request, schedule,
+workflow_dispatch, merge_group, release or workflow_call fails. A called
+workflow runs under its caller's event, so the fail-closed form still sees a
+fork pull request; the caller's trigger is checked where the call is made. A run that finds no
+self-hosted selection and no trusted workflow call fails: it compared
+nothing.
 
 Anchors and aliases are resolved before judging: a guard stated once as
 `runs-on: &guard ...` and reused as `runs-on: *guard` is judged at every
@@ -131,6 +134,8 @@ Config, DIR/plant-guard.toml (or --config):
   fallback = "ubuntu-24.04"            # the hosted image a fork falls back to;
                                        # or a list: ["ubuntu-24.04", "ubuntu-latest"]
   labels = ["self-hosted", "linux", "x64", "light"]   # provisioned labels
+  trusted_workflows = ["pulseengine/jig/.github/workflows/*.yml"]
+                                       # reusable workflows a job may call
   [[exempt]]                           # may select labels without the form
   workflow = "nightly.yml"
   reason = "schedule only"
@@ -138,6 +143,14 @@ Every label in a self-hosted selection must be in `labels`; with self-hosted
 lines and no `labels`, the run fails. An exemption holds only when every
 trigger of that workflow is push, schedule, workflow_dispatch or release, and
 an exemption naming a missing workflow fails. Unknown keys are an error.
+
+A trusted_workflows entry is owner/repo/.github/workflows/<file>.yml (or
+.yaml), where <file> may be `*`; no other wildcard and no ref. A job calling
+another repository's workflow passes only when the path matches an entry,
+the ref is a 40-hex commit SHA (a tag or branch can move), the job has no
+runs-on, and every trigger of the calling workflow is in the list above.
+The runners the called workflow selects are not visible here: run plant
+guard in the repository that owns it.
 
 Exit: 0 all fail-closed, 1 a violation or nothing compared, 2 could not read
 the workflows or the config. --format json prints schema plant.guard.v1.
