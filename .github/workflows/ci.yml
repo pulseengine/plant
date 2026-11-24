@@ -113,6 +113,10 @@ jobs:
         run: |
           cargo build --locked
           target/debug/plant ci-controls.lockfiles.toml
+      # The lockfile pack for other repositories (examples/locks): real gate
+      # PASS, root-only stand-in FAIL-OPEN, blind FAIL-OPEN.
+      - name: lockfile pack
+        run: scripts/proof-packs.sh target/debug/plant locks
 
   rivet:
     name: rivet validate

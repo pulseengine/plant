@@ -310,3 +310,14 @@ artifacts:
       - type: satisfies
         target: SC-1
 
+  - id: REQ-034
+    type: requirement
+    title: plant ships a lockfile control pack other repositories can adopt
+    status: implemented
+    description: "examples/locks shall hold a fixture with a root and a nested Cargo workspace, a gate (check.sh, byte-identical to plant's scripts/lockfiles.sh) and three manifests: the real gate rejects a stale, a missing and a vulnerable nested lock (3 PASS); a stand-in that reads only the root lock must report all three FAIL-OPEN; a vulnerable lock under target/ must report FAIL-OPEN against the real gate (blind). The lockfiles CI job runs the pack. Planted lock and manifest files use the .planted suffix. Owner approval for per-class control packs in the shared CI baseline pilot, 2026-11-21."
+    fields:
+      category: functional
+      priority: should
+    links:
+      - type: satisfies
+        target: SC-1

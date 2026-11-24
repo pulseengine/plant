@@ -366,3 +366,13 @@ artifacts:
       - type: satisfies
         target: REQ-033
 
+  - id: FEAT-019
+    type: feature
+    title: examples/locks control pack
+    status: implemented
+    description: Fixture, check.sh, ci-controls{,.stand-in,.blind}.toml; scripts/proof-packs.sh also finds examples/PACK/fixture; the lockfiles CI job runs scripts/proof-packs.sh target/debug/plant locks; tests/lockfiles.rs fails when check.sh drifts from scripts/lockfiles.sh.
+    fields:
+      phase: phase-2
+    links:
+      - type: satisfies
+        target: REQ-034

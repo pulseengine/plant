@@ -1,0 +1,27 @@
+# Negative control for the pack: a stand-in gate that audits and checks only
+# the root Cargo.lock. It must report FAIL-OPEN for every control: the bad
+# lock is in the nested workspace tools/, which it never reads.
+
+[[control]]
+id = "lock-stale-nested"
+check = "root lock only"
+run = "cargo audit --quiet --deny warnings --file Cargo.lock && cargo metadata --locked --format-version 1 >/dev/null"
+plant = "ci-controls/lock-stale-nested"
+stderr_or_stdout_matches = 'tools/Cargo\.lock: not binding'
+timeout = 600
+
+[[control]]
+id = "lock-missing-nested"
+check = "root lock only"
+run = "cargo audit --quiet --deny warnings --file Cargo.lock && cargo metadata --locked --format-version 1 >/dev/null"
+plant = "ci-controls/lock-missing-nested"
+stderr_or_stdout_matches = 'tools/Cargo\.lock: no Cargo\.lock'
+timeout = 600
+
+[[control]]
+id = "lock-vulnerable-nested"
+check = "root lock only"
+run = "cargo audit --quiet --deny warnings --file Cargo.lock && cargo metadata --locked --format-version 1 >/dev/null"
+plant = "ci-controls/lock-vulnerable-nested"
+stderr_or_stdout_matches = 'RUSTSEC-2020-0071'
+timeout = 600
