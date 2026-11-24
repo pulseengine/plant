@@ -43,8 +43,18 @@ for root in $roots; do
     echo "lockfiles: $rel: not committed (untracked or gitignored)"
     fail=1
   fi
-  if ! cargo audit --quiet --deny warnings --file "$lock"; then
-    echo "lockfiles: $rel: cargo audit reported findings"
+  # A fetch failure of the advisory database is not a finding: say which it
+  # was. Both fail the gate; an unaudited lock never passes.
+  out=$(cargo audit --quiet --deny warnings --file "$lock" 2>&1)
+  rc=$?
+  [ -n "$out" ] && printf '%s\n' "$out"
+  if [ "$rc" -ne 0 ]; then
+    case $out in
+      *"couldn't fetch advisory database"*)
+        echo "lockfiles: $rel: advisory database unreachable; the lock was not audited" ;;
+      *)
+        echo "lockfiles: $rel: cargo audit reported findings" ;;
+    esac
     fail=1
   fi
   if ! cargo metadata --locked --format-version 1 --manifest-path "$root" >/dev/null; then

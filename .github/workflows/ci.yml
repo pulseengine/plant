@@ -93,8 +93,9 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          # cargo audit fetches github.com/RustSec/advisory-db; a persisted
-          # job token is sent there too and refused with HTTP 401.
+          # Hygiene: the job needs no token after checkout. (The HTTP 401
+          # cargo audit hit on 2026-11-24 came from a runner's leftover global
+          # insteadOf rewrite, not from this credential.)
           persist-credentials: false
       - uses: dtolnay/rust-toolchain@39008827e6b4319a349e9a42dfc90579dd25f1ca # stable, 2026-11-15
         with:
