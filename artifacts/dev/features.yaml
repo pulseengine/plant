@@ -352,3 +352,17 @@ artifacts:
       - type: satisfies
         target: REQ-032
 
+  - id: FEAT-018
+    type: feature
+    title: .planted suffix for plant files dependency bots would read
+    status: implemented
+    description: >
+      scratch::target_of strips `.planted` when a plant is applied;
+      run_manifest collects plant files with manifest or lockfile names and
+      plant warns about each. lock-controls renamed to `.planted`.
+    fields:
+      phase: phase-2
+    links:
+      - type: satisfies
+        target: REQ-033
+
