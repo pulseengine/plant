@@ -854,3 +854,59 @@ fn without_shallow_git_the_compare_check_has_no_base() {
     assert_ne!(c["baseline"], "green", "{c}");
     assert_eq!(r.code, 1);
 }
+
+// ── .planted suffix (REQ-033) ───────────────────────────────────────────────
+
+// rivet: verifies REQ-033
+#[test]
+fn a_planted_suffix_file_is_planted_under_its_real_name() {
+    let f = Fixture::new("sfx");
+    write(&f.repo.join("plants/sfx/data.txt.planted"), "bad\n");
+    f.manifest("m.toml", &ctl("sfx", DATA, "plants/sfx", ""));
+    let r = f.run_json("m.toml");
+    assert_verdict(&r.control("sfx"), "PASS", "exited 1");
+    assert!(!r.stderr.contains("warning"), "{}", r.stderr);
+}
+
+// rivet: verifies REQ-033
+#[test]
+fn a_plant_holding_both_x_and_x_planted_is_fail() {
+    let f = Fixture::new("both");
+    write(&f.repo.join("plants/both/data.txt"), "bad\n");
+    write(&f.repo.join("plants/both/data.txt.planted"), "still fine\n");
+    f.manifest("m.toml", &ctl("both", DATA, "plants/both", ""));
+    let r = f.run_json("m.toml");
+    assert_verdict(&r.control("both"), "FAIL", "would both write data.txt");
+    assert_eq!(r.code, 1);
+}
+
+// rivet: verifies REQ-033
+#[test]
+fn a_plant_file_named_like_a_lockfile_warns() {
+    let f = Fixture::new("botname");
+    write(&f.repo.join("plants/lock/data.txt"), "bad\n");
+    write(&f.repo.join("plants/lock/sub/Cargo.lock"), "# planted\n");
+    write(&f.repo.join("plants/quiet/data.txt"), "bad\n");
+    write(
+        &f.repo.join("plants/quiet/sub/Cargo.lock.planted"),
+        "# planted\n",
+    );
+    f.manifest(
+        "m.toml",
+        &format!(
+            "{}{}",
+            ctl("lock", DATA, "plants/lock", ""),
+            ctl("quiet", DATA, "plants/quiet", "")
+        ),
+    );
+    let r = f.run_json("m.toml");
+    assert_verdict(&r.control("lock"), "PASS", "exited 1");
+    assert_verdict(&r.control("quiet"), "PASS", "exited 1");
+    assert!(
+        r.stderr
+            .contains("warning: plants/lock/sub/Cargo.lock is named like"),
+        "{}",
+        r.stderr
+    );
+    assert!(!r.stderr.contains("plants/quiet"), "{}", r.stderr);
+}

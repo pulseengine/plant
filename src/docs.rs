@@ -88,6 +88,13 @@ const MECHANICS: &str = "\
   a check can compare the tree with its base commit (`git diff HEAD`), for
   example a ledger that may only shrink. export-ignore and export-subst do
   not apply to it. It costs a fetch per run.
+- A plant file named `<name>.planted` is written as `<name>`: store a planted
+  manifest or lockfile (Cargo.lock, package.json, go.sum, ...) as
+  `Cargo.lock.planted`. Dependabot and Renovate read those names anywhere in
+  the tree, so a deliberately vulnerable planted lock raises an alert and a
+  PR that would \"fix\" it, and merging that PR would weaken the control. plant
+  warns on stderr about a plant file stored under such a name. A plant that
+  holds both `x` and `x.planted` is an error.
 - Symlinks in a plant must point inside the scratch copy.
 - On SIGINT or SIGTERM plant kills the running check's process group,
   removes its temp dir and exits 2.

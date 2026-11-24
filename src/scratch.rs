@@ -10,6 +10,63 @@ use crate::verdict::PlantState;
 
 pub const DELETE_FILE: &str = "delete";
 
+/// A plant file named `<name>.planted` is written as `<name>`. Dependency bots
+/// (Dependabot, Renovate) read manifests and lockfiles by name anywhere in the
+/// tree; a deliberately vulnerable planted Cargo.lock raises an alert and a PR
+/// that would "fix" the plant, so plants store such files under this suffix.
+pub const PLANTED_SUFFIX: &str = ".planted";
+
+/// File names dependency bots read as manifests or lockfiles.
+const BOT_READ_NAMES: &[&str] = &[
+    "Cargo.toml",
+    "Cargo.lock",
+    "package.json",
+    "package-lock.json",
+    "npm-shrinkwrap.json",
+    "yarn.lock",
+    "pnpm-lock.yaml",
+    "go.mod",
+    "go.sum",
+    "requirements.txt",
+    "Pipfile",
+    "Pipfile.lock",
+    "poetry.lock",
+    "pyproject.toml",
+    "uv.lock",
+    "Gemfile",
+    "Gemfile.lock",
+    "composer.json",
+    "composer.lock",
+    "pom.xml",
+    "build.gradle",
+    "build.gradle.kts",
+    "gradle.lockfile",
+    "MODULE.bazel",
+    "MODULE.bazel.lock",
+    "packages.lock.json",
+];
+
+/// Where a plant file lands in the scratch copy: `.planted` is stripped.
+pub fn target_of(rel: &str) -> &str {
+    match rel.strip_suffix(PLANTED_SUFFIX) {
+        Some(t) if !t.is_empty() && !t.ends_with('/') => t,
+        _ => rel,
+    }
+}
+
+/// Plant files stored under a name dependency bots read, which should carry
+/// the `.planted` suffix instead.
+pub fn bot_visible(files: &[String]) -> Vec<String> {
+    files
+        .iter()
+        .filter(|f| {
+            let base = f.rsplit('/').next().unwrap_or(f);
+            BOT_READ_NAMES.contains(&base)
+        })
+        .cloned()
+        .collect()
+}
+
 /// A temp directory removed on drop.
 pub struct WorkDir(PathBuf);
 
@@ -279,6 +336,17 @@ pub fn read_plant(root: &Path, rel: &str) -> Result<Plant, String> {
     walk(&dir, &dir, &mut plant.files).map_err(|e| format!("cannot read plant {rel}: {e}"))?;
     plant.files.retain(|f| f != DELETE_FILE);
     plant.files.sort();
+    for (i, a) in plant.files.iter().enumerate() {
+        if let Some(b) = plant.files[i + 1..]
+            .iter()
+            .find(|b| target_of(b) == target_of(a))
+        {
+            return Err(format!(
+                "plant {rel}: {a} and {b} would both write {}",
+                target_of(a)
+            ));
+        }
+    }
     let dfile = dir.join(DELETE_FILE);
     if fs::symlink_metadata(&dfile)
         .map(|m| m.is_file())
@@ -318,7 +386,7 @@ fn walk(base: &Path, dir: &Path, out: &mut Vec<String>) -> io::Result<()> {
 /// Overlay the plant's files onto `scratch`, then apply its delete list.
 pub fn apply_plant(scratch: &Path, plant: &Plant) -> Result<(), String> {
     for rel in &plant.files {
-        let dst = inside(scratch, rel)?;
+        let dst = inside(scratch, target_of(rel))?;
         no_symlinked_parent(scratch, &dst)?;
         if let Some(parent) = dst.parent() {
             fs::create_dir_all(parent).map_err(|e| format!("{rel}: {e}"))?;
@@ -381,5 +449,46 @@ mod tests {
         assert!(inside(b, "a/../../x").unwrap_err().contains("escapes"));
         assert!(inside(b, "/etc/passwd").unwrap_err().contains("absolute"));
         assert!(inside(b, ".").unwrap_err().contains("root itself"));
+    }
+
+    // rivet: verifies REQ-033
+    #[test]
+    fn planted_suffix_is_stripped_and_bot_read_names_are_flagged() {
+        assert_eq!(target_of("a/Cargo.lock.planted"), "a/Cargo.lock");
+        assert_eq!(target_of("a/Cargo.lock"), "a/Cargo.lock");
+        assert_eq!(target_of(".planted"), ".planted");
+        assert_eq!(target_of("a/.planted"), "a/.planted");
+        let files: Vec<String> = [
+            "x/Cargo.lock",
+            "x/Cargo.lock.planted",
+            "package.json",
+            "src/lib.rs",
+        ]
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
+        assert_eq!(bot_visible(&files), vec!["x/Cargo.lock", "package.json"]);
+    }
+
+    // rivet: verifies REQ-033
+    #[test]
+    fn a_planted_file_lands_under_its_real_name() {
+        let t = std::env::temp_dir().join(format!("plant-sfx-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&t);
+        let (root, scratch) = (t.join("root"), t.join("scratch"));
+        fs::create_dir_all(root.join("p/w")).unwrap();
+        fs::create_dir_all(&scratch).unwrap();
+        fs::write(root.join("p/w/Cargo.lock.planted"), "planted").unwrap();
+        let plant = read_plant(&root, "p").unwrap();
+        apply_plant(&scratch, &plant).unwrap();
+        assert_eq!(
+            fs::read_to_string(scratch.join("w/Cargo.lock")).unwrap(),
+            "planted"
+        );
+        assert!(!scratch.join("w/Cargo.lock.planted").exists());
+        fs::write(root.join("p/w/Cargo.lock"), "both").unwrap();
+        let err = read_plant(&root, "p").err().unwrap();
+        assert!(err.contains("would both write w/Cargo.lock"), "{err}");
+        let _ = fs::remove_dir_all(&t);
     }
 }

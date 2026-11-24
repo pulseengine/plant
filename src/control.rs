@@ -28,6 +28,8 @@ pub struct ControlResult {
 pub struct Report {
     pub results: Vec<ControlResult>,
     pub tracked_changes: bool,
+    /// Plant files named like a manifest or lockfile (`<plant>/<file>`).
+    pub bot_visible: Vec<String>,
 }
 
 impl Report {
@@ -63,6 +65,7 @@ pub fn run_manifest(path: &Path, only: &[String]) -> Result<Report, String> {
         return Ok(Report {
             results: Vec::new(),
             tracked_changes: false,
+            bot_visible: Vec::new(),
         });
     }
     let manifest_abs =
@@ -74,6 +77,16 @@ pub fn run_manifest(path: &Path, only: &[String]) -> Result<Report, String> {
     let head = work.path().join("head");
     scratch::export_head(root, &head)?;
     let tracked_changes = scratch::tracked_changes(root);
+    let mut bot_visible = Vec::new();
+    for c in &controls {
+        if let Ok(p) = scratch::read_plant(root, &c.plant) {
+            for f in scratch::bot_visible(&p.files) {
+                bot_visible.push(format!("{}/{f}", c.plant.trim_end_matches('/')));
+            }
+        }
+    }
+    bot_visible.sort();
+    bot_visible.dedup();
     let mut results = Vec::new();
     for (i, c) in controls.iter().enumerate() {
         results.push(run_control(c, root, &head, work.path(), i));
@@ -84,6 +97,7 @@ pub fn run_manifest(path: &Path, only: &[String]) -> Result<Report, String> {
     Ok(Report {
         results,
         tracked_changes,
+        bot_visible,
     })
 }
 

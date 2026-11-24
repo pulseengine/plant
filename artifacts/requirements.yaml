@@ -298,3 +298,15 @@ artifacts:
     links:
       - type: satisfies
         target: SSC-1
+
+  - id: REQ-033
+    type: requirement
+    title: Planted manifests and lockfiles are stored under a name dependency bots do not read
+    status: implemented
+    description: >
+      A plant file named `<name>.planted` shall be written into the scratch copy as `<name>`, a plant holding both shall be refused, and plant shall warn on stderr about a plant file stored under a manifest or lockfile name (Cargo.lock, package.json, ...). Dependency bots read those names anywhere in the tree; a deliberately vulnerable planted lock otherwise raises an alert and a PR that would weaken the control (seen in jig, jig#9). plant's own lock-controls store their planted Cargo files as `.planted`.
+    fields: {priority: should, category: functional}
+    links:
+      - type: satisfies
+        target: SC-1
+

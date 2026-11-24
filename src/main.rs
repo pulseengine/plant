@@ -148,6 +148,13 @@ fn main() -> ExitCode {
                      is HEAD, so those edits are not under test"
                 );
             }
+            for f in &report.bot_visible {
+                eprintln!(
+                    "plant: warning: {f} is named like a manifest or lockfile; dependency \
+                     bots read it and may open a PR that weakens the plant: store it as \
+                     {f}.planted"
+                );
+            }
             match cli.format {
                 Format::Text => println!("{}", report::text(&report)),
                 Format::Json => println!("{}", report::json(&report)),
