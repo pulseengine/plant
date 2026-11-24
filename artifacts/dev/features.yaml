@@ -283,7 +283,7 @@ artifacts:
     type: feature
     title: Required-check census and verified runner (O3 summary)
     status: draft
-    release: v0.5.0
+    release: v0.6.0
     description: >
       Draft scope for v0.4.0, pending the owner's decision. See
       docs/plan/v0.4.0.md for acceptance and kill criteria.
@@ -297,7 +297,7 @@ artifacts:
     type: feature
     title: Bundle negative controls (O2)
     status: draft
-    release: v0.5.0
+    release: v0.6.0
     description: >
       Draft scope for v0.4.0, pending the owner's decision. See
       docs/plan/v0.4.0.md for acceptance and kill criteria.
@@ -311,7 +311,7 @@ artifacts:
     type: feature
     title: plant guard as a signed WASI component (O5)
     status: draft
-    release: v0.5.0
+    release: v0.6.0
     description: >
       Draft scope for v0.4.0, pending the owner's decision. See
       docs/plan/v0.4.0.md for acceptance and kill criteria.
@@ -360,6 +360,7 @@ artifacts:
       scratch::target_of strips `.planted` when a plant is applied;
       run_manifest collects plant files with manifest or lockfile names and
       plant warns about each. lock-controls renamed to `.planted`.
+    release: v0.5.0
     fields:
       phase: phase-2
     links:
@@ -371,6 +372,7 @@ artifacts:
     title: examples/locks control pack
     status: implemented
     description: Fixture, check.sh, ci-controls{,.stand-in,.blind}.toml; scripts/proof-packs.sh also finds examples/PACK/fixture; the lockfiles CI job runs scripts/proof-packs.sh target/debug/plant locks; tests/lockfiles.rs fails when check.sh drifts from scripts/lockfiles.sh.
+    release: v0.5.0
     fields:
       phase: phase-2
     links:

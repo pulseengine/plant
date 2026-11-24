@@ -243,7 +243,7 @@ artifacts:
     type: requirement
     title: plant census reports which required checks a planted input turned red
     status: draft
-    release: v0.5.0
+    release: v0.6.0
     description: >
       Serves O3 (summary: each claim maps to a CI check that can fail); not the O3 indicator. `plant census` shall map required contexts, workflows, manifests and CI reports to plant.census.v1, counting a context as covered only when the control is bound to its job step, went red with a regex on a green baseline, and the report is fresh, from a default-branch CI run, and from a verified plant release. plant run reports shall carry the schema plant.report.v1. Plan: bet B.
     fields: {priority: should, category: functional}
@@ -255,7 +255,7 @@ artifacts:
     type: requirement
     title: plant ships negative controls for the one-command evidence bundle
     status: draft
-    release: v0.5.0
+    release: v0.6.0
     description: >
       Serves O2 (guard: the verify command must fail when any piece of evidence is removed). examples/bundle shall hold controls that remove or alter each of the rivet trace, witness report and sigil attestation, all of which the verify command must reject, with a stand-in that only checks existence turning them FAIL-OPEN. Plan: bet C; dropped if no single verify command exists.
     fields: {priority: should, category: functional}
@@ -267,7 +267,7 @@ artifacts:
     type: requirement
     title: plant guard runs as a signed WASI component with an equivalence test
     status: draft
-    release: v0.5.0
+    release: v0.6.0
     description: >
       Serves O5 (indicator: tools and gates running as signed WASI components under kiln, wasmtime as the differential). plant guard shall build from a pure core for wasm32-wasip2, be signed in the release, and be held byte-identical to the native plant guard by a CI equivalence job under wasmtime and kiln. Plan: bet D; gated on kiln running a wasip2 command component.
     fields: {priority: should, category: functional}
@@ -305,6 +305,7 @@ artifacts:
     status: implemented
     description: >
       A plant file named `<name>.planted` shall be written into the scratch copy as `<name>`, a plant holding both shall be refused, and plant shall warn on stderr about a plant file stored under a manifest or lockfile name (Cargo.lock, package.json, ...). Dependency bots read those names anywhere in the tree; a deliberately vulnerable planted lock otherwise raises an alert and a PR that would weaken the control (seen in jig, jig#9). plant's own lock-controls store their planted Cargo files as `.planted`.
+    release: v0.5.0
     fields: {priority: should, category: functional}
     links:
       - type: satisfies
@@ -315,6 +316,7 @@ artifacts:
     title: plant ships a lockfile control pack other repositories can adopt
     status: implemented
     description: "examples/locks shall hold a fixture with a root and a nested Cargo workspace, a gate (check.sh, byte-identical to plant's scripts/lockfiles.sh) and three manifests: the real gate rejects a stale, a missing and a vulnerable nested lock (3 PASS); a stand-in that reads only the root lock must report all three FAIL-OPEN; a vulnerable lock under target/ must report FAIL-OPEN against the real gate (blind). The lockfiles CI job runs the pack. Planted lock and manifest files use the .planted suffix. Owner approval for per-class control packs in the shared CI baseline pilot, 2026-11-21."
+    release: v0.5.0
     fields:
       category: functional
       priority: should
