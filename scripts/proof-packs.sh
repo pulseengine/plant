@@ -9,6 +9,8 @@
 #
 #   scripts/proof-packs.sh PLANT_BIN [PACK...]     default packs: lean kani
 #
+# A pack is examples/proof/PACK/fixture, or examples/PACK/fixture (locks).
+#
 # Each fixture is copied into a throwaway git repository, since plant runs
 # on HEAD. Exit 0 when every manifest gave its expected verdicts, 1 otherwise,
 # 2 on usage.
@@ -24,6 +26,7 @@ trap 'rm -rf "$t"' EXIT
 fail=0
 for pack in "${packs[@]}"; do
   src="$root/examples/proof/$pack/fixture"
+  [ -d "$src" ] || src="$root/examples/$pack/fixture"
   [ -d "$src" ] || { echo "proof-packs: no pack $pack" >&2; exit 2; }
   work="$t/$pack"
   cp -R "$src" "$work"

@@ -1,0 +1,11 @@
+# Blind control: the real gate, with the vulnerable lock under target/, which
+# is build output and not a workspace. The gate does not read it, so the
+# control must report FAIL-OPEN: a lock the gate never reads is not rejected.
+
+[[control]]
+id = "lock-vulnerable-in-target"
+check = "lockfile gate"
+run = "./check.sh"
+plant = "ci-controls/lock-vulnerable-in-target"
+stderr_or_stdout_matches = 'RUSTSEC-2020-0071'
+timeout = 600

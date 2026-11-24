@@ -58,3 +58,17 @@ fn lock_controls_target_a_committed_nested_workspace() {
         assert!(touches, "{id}: plant does not touch {NESTED}");
     }
 }
+
+// The lockfile pack's gate is a copy of plant's own, so that adopters can take
+// the fixture as it is. It may not drift: the pack would then prove a gate
+// plant no longer runs.
+// rivet: verifies REQ-034
+#[test]
+fn locks_pack_gate_is_plants_lockfile_gate() {
+    let ours = fs::read(root().join("scripts/lockfiles.sh")).unwrap();
+    let pack = fs::read(root().join("examples/locks/fixture/check.sh")).unwrap();
+    assert!(
+        ours == pack,
+        "examples/locks/fixture/check.sh differs from scripts/lockfiles.sh; copy it over"
+    );
+}

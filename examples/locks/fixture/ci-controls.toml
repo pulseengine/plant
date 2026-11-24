@@ -1,0 +1,29 @@
+# The lockfile pack, against the fixture's real gate (check.sh, a copy of
+# plant's scripts/lockfiles.sh: every Cargo workspace in the tree has a
+# committed lock, cargo audit clean, binding under --locked). Each control
+# plants a bad lock in the nested workspace tools/, which a gate that reads
+# only the root Cargo.lock never sees. Every control must PASS.
+
+[[control]]
+id = "lock-stale-nested"
+check = "lockfile gate"
+run = "./check.sh"
+plant = "ci-controls/lock-stale-nested"
+stderr_or_stdout_matches = 'tools/Cargo\.lock: not binding'
+timeout = 600
+
+[[control]]
+id = "lock-missing-nested"
+check = "lockfile gate"
+run = "./check.sh"
+plant = "ci-controls/lock-missing-nested"
+stderr_or_stdout_matches = 'tools/Cargo\.lock: no Cargo\.lock'
+timeout = 600
+
+[[control]]
+id = "lock-vulnerable-nested"
+check = "lockfile gate"
+run = "./check.sh"
+plant = "ci-controls/lock-vulnerable-nested"
+stderr_or_stdout_matches = '(?s)RUSTSEC-2020-0071.*tools/Cargo\.lock: cargo audit reported findings'
+timeout = 600
