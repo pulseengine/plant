@@ -1,0 +1,13 @@
+[[control]]
+id = "test-catches-overflow"
+check = "Test"
+run = "cargo test"
+plant = "ci-controls/overflow"
+stderr_or_stdout_matches = 'attempt to add with overflow'
+
+[[control]]
+id = "aggregate-claimed"
+check = "all-green"
+run = "cargo test --locked"
+plant = "ci-controls/overflow"
+stderr_or_stdout_matches = 'overflow'

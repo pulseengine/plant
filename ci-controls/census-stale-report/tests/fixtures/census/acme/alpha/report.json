@@ -1,0 +1,8 @@
+{
+  "schema": "plant.report.v1",
+  "run": {"branch": "main", "date": "2026-10-31", "plant_verified": true},
+  "controls": [
+    {"id": "test-catches-overflow", "check": "Test", "status": "PASS", "baseline": "green", "planted_exit": 101},
+    {"id": "aggregate-claimed", "check": "all-green", "status": "PASS", "baseline": "green", "planted_exit": 101}
+  ]
+}

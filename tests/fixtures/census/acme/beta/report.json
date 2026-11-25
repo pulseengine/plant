@@ -1,0 +1,8 @@
+{
+  "schema": "plant.report.v1",
+  "run": {"branch": "main", "date": "2026-10-30", "plant_verified": true},
+  "controls": [
+    {"id": "build-release", "check": "Build", "status": "PASS", "baseline": "green", "planted_exit": 101},
+    {"id": "docs-link", "check": "Docs", "status": "PASS", "baseline": "skipped", "planted_exit": 1}
+  ]
+}

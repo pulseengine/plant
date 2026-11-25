@@ -10,6 +10,11 @@ pub const TOPICS: &[(&str, &str, &str)] = &[
         "plant guard: no fork PR reaches a self-hosted runner",
         GUARD,
     ),
+    (
+        "census",
+        "plant census: which required checks a plant turned red",
+        CENSUS,
+    ),
 ];
 
 pub fn list() -> String {
@@ -162,4 +167,46 @@ guard in the repository that owns it.
 
 Exit: 0 all fail-closed, 1 a violation or nothing compared, 2 could not read
 the workflows or the config. --format json prints schema plant.guard.v1.
+"#;
+
+const CENSUS: &str = r#"plant census DIR --month YYYY-MM [--format text|json]
+
+Counts, per repository, the required checks that a planted input turned red.
+It is a pure function of files; it fetches nothing. DIR holds one
+OWNER/REPO directory per repository:
+
+  repo.toml              default_branch = "main"
+                         required = ["Test", "Lint"]   # the required contexts
+  .github/workflows/     the workflows; a job's name (or id) is its context
+  ci-controls.toml       the repository's manifest (optional)
+  report.json            plant --format json output (schema plant.report.v1),
+                         plus a "run" block added by the collector (optional):
+                         {"branch": "main", "date": "2026-11-20",
+                          "plant_verified": true}
+
+Each required context gets one class:
+  covered             a control whose check names the context meets all five:
+                      1 bound: its run is a whole command line of a run step
+                        in the job that produces the context;
+                      2 red: it has stderr_or_stdout_matches, and the report
+                        says PASS with a non-zero planted exit;
+                      3 green baseline: baseline is on and the report says
+                        green;
+                      4 fresh: the report is from the default branch and
+                        dated in --month;
+                      5 verified: the report says the plant binary was a
+                        release checked by cosign and sha256.
+  declared-not-bound  a control names it, but none meets all five; the
+                      reasons list every condition that failed
+  aggregate           its job only reads the results of the jobs it needs,
+                      so no plant can be bound to it
+  uncovered           no control names it
+
+pulseengine/plant is listed as excluded: it runs plant built from the commit
+under test. Output schema: plant.census.v1. Exit 0 when the census was
+computed, 1 when DIR holds no repository, 2 on unreadable or invalid input.
+
+Not claimed: that a covered check is a good check, or that an uncovered one
+is fail-open. A job name built from an expression (a matrix) is not resolved,
+so its contexts show as uncovered.
 "#;

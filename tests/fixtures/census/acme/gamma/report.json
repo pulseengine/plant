@@ -1,0 +1,7 @@
+{
+  "schema": "plant.report.v1",
+  "run": {"branch": "feat/x", "date": "2026-11-02", "plant_verified": false},
+  "controls": [
+    {"id": "check-null", "check": "Check", "status": "FAIL", "baseline": "green", "planted_exit": 0}
+  ]
+}

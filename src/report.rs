@@ -37,6 +37,7 @@ pub fn text(r: &Report) -> String {
 
 pub fn json(r: &Report) -> String {
     let doc = json!({
+        "schema": crate::census::REPORT_SCHEMA,
         "controls": r.results,
         "summary": {
             "total": r.results.len(),

@@ -1,0 +1,7 @@
+on: pull_request
+jobs:
+  check:
+    name: Check
+    runs-on: ubuntu-24.04
+    steps:
+      - run: make check
