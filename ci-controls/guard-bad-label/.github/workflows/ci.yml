@@ -32,9 +32,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       # The runner's default toolchain can change under us (1.97.0 arrived
       # without clippy and reddened main): install what the steps need.
-      - uses: dtolnay/rust-toolchain@39008827e6b4319a349e9a42dfc90579dd25f1ca # stable, 2026-11-15
+      - uses: dtolnay/rust-toolchain@df2a88e9fe4098bad09cb42c3dec7187f15861fc # master, 2026-11-15
         with:
-          toolchain: stable
+          toolchain: 1.100.0
           components: rustfmt, clippy
       - name: fmt
         run: cargo fmt --all -- --check
@@ -54,9 +54,9 @@ jobs:
     runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && fromJSON('["self-hosted","linux","x64","}.$l.q{"]') || 'ubuntu-24.04' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: dtolnay/rust-toolchain@39008827e6b4319a349e9a42dfc90579dd25f1ca # stable, 2026-11-15
+      - uses: dtolnay/rust-toolchain@df2a88e9fe4098bad09cb42c3dec7187f15861fc # master, 2026-11-15
         with:
-          toolchain: stable
+          toolchain: 1.100.0
       # plant holds itself to its own rule, through its own GitHub Action: each
       # control plants a broken source file and needs the named self-test to go
       # red. Exit 1 on any fail-open control and on an empty manifest.
@@ -74,9 +74,9 @@ jobs:
     runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && fromJSON('["self-hosted","linux","x64","light"]') || 'ubuntu-24.04' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: dtolnay/rust-toolchain@39008827e6b4319a349e9a42dfc90579dd25f1ca # stable, 2026-11-15
+      - uses: dtolnay/rust-toolchain@df2a88e9fe4098bad09cb42c3dec7187f15861fc # master, 2026-11-15
         with:
-          toolchain: stable
+          toolchain: 1.100.0
       # examples/sieve: a docs-only change must select nothing; each plant is a
       # change that must select a class or run everything. A false skip by the
       # pinned sieve release shows as FAIL-OPEN. tests/sieve_fixture.rs checks
@@ -97,9 +97,9 @@ jobs:
           # cargo audit hit on 2026-11-24 came from a runner's leftover global
           # insteadOf rewrite, not from this credential.)
           persist-credentials: false
-      - uses: dtolnay/rust-toolchain@39008827e6b4319a349e9a42dfc90579dd25f1ca # stable, 2026-11-15
+      - uses: dtolnay/rust-toolchain@df2a88e9fe4098bad09cb42c3dec7187f15861fc # master, 2026-11-15
         with:
-          toolchain: stable
+          toolchain: 1.100.0
       - name: install cargo-audit
         run: cargo install --locked cargo-audit --version 0.22.1
       # Every Cargo workspace in the tree, nested fixtures included: a
@@ -127,9 +127,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: dtolnay/rust-toolchain@39008827e6b4319a349e9a42dfc90579dd25f1ca # stable, 2026-11-15
+      - uses: dtolnay/rust-toolchain@df2a88e9fe4098bad09cb42c3dec7187f15861fc # master, 2026-11-15
         with:
-          toolchain: stable
+          toolchain: 1.100.0
       - uses: sigstore/cosign-installer@756fe2d284c7292c4e9b62c8a28f1e5629c59532 # v4.1.3
         with:
           cosign-release: 'v2.4.1'
