@@ -16,6 +16,18 @@ use std::path::Path;
 /// (control id, source file, text replaced, replacement)
 const PLANTS: &[(&str, &str, &str, &str)] = &[
     (
+        "install-wrong-identity",
+        "action/install.sh",
+        "identity=\"https://github.com/pulseengine/plant/.github/workflows/release.yml@refs/tags/$tag\"",
+        "identity=\"https://github.com/pulseengine/sieve/.github/workflows/release.yml@refs/tags/$tag\"",
+    ),
+    (
+        "install-wrong-checksum",
+        "action/install.sh",
+        "'$2 == a || $2 == b { print $1 }'",
+        "'$2 != a && $2 != b && /tar\\.gz$/ { print $1; exit }'",
+    ),
+    (
         "census-exit0-counted",
         "tests/fixtures/census/acme/alpha/report.json",
         "\"Test\", \"status\": \"PASS\", \"baseline\": \"green\", \"planted_exit\": 101}",
@@ -234,14 +246,20 @@ fn plant_sets_agree() {
         );
     }
 
-    let manifest: toml::Table = fs::read_to_string(root().join("ci-controls.toml"))
-        .unwrap()
-        .parse()
-        .unwrap();
-    let controls = manifest["control"].as_array().unwrap();
+    // ci-controls.install.toml holds the controls that need network and
+    // cosign; together the two manifests name every plant exactly once.
+    let mut controls = Vec::new();
+    for m in ["ci-controls.toml", "ci-controls.install.toml"] {
+        let manifest: toml::Table = fs::read_to_string(root().join(m)).unwrap().parse().unwrap();
+        controls.extend(manifest["control"].as_array().unwrap().iter().cloned());
+    }
     let ids: BTreeSet<&str> = controls.iter().map(|c| c["id"].as_str().unwrap()).collect();
-    assert_eq!(table, ids, "plant table vs ci-controls.toml ids");
-    for c in controls {
+    assert_eq!(ids.len(), controls.len(), "a control id is used twice");
+    assert_eq!(
+        table, ids,
+        "plant table vs ci-controls{{,.install}}.toml ids"
+    );
+    for c in &controls {
         let id = c["id"].as_str().unwrap();
         assert_eq!(
             c["plant"].as_str(),

@@ -1,0 +1,20 @@
+# Controls for the action's verified install (action/install.sh, plan bet B).
+# The baseline installs plant 0.5.0 from its GitHub release; each plant breaks
+# one check, which must refuse the install. Needs network and cosign. Run:
+#   plant ci-controls.install.toml   (CI job "action install")
+
+[[control]]
+id = "install-wrong-identity"
+check = "action install"
+run = 'action/install.sh 0.5.0 "$(mktemp -d)"'
+plant = "ci-controls/install-wrong-identity"
+stderr_or_stdout_matches = 'cosign rejected SHA256SUMS\.txt for v0\.5\.0 \(identity https://github\.com/pulseengine/sieve/'
+timeout = 300
+
+[[control]]
+id = "install-wrong-checksum"
+check = "action install"
+run = 'action/install.sh 0.5.0 "$(mktemp -d)"'
+plant = "ci-controls/install-wrong-checksum"
+stderr_or_stdout_matches = 'sha256 mismatch for plant-v0\.5\.0-'
+timeout = 300
