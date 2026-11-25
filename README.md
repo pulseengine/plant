@@ -76,7 +76,14 @@ uploaded as the CI artifact named by `artifact`, also when plant fails; give
 each plant step in a workflow its own name. The upload is off by default: the
 report holds the tail of each control's command output, and GitHub masks
 secrets in the log but not in artifacts. Turn it on only when no control's
-command can print a secret. Pin the action by commit SHA.
+command can print a secret.
+
+`scripts/census-collect.sh DIR OWNER/REPO...` fetches what `plant census DIR
+--month YYYY-MM` reads: each repository's required checks (branch protection
+and rulesets), workflows, manifest, and newest `plant-report` artifact from
+the default branch. It uses your own gh login and stores no token; reading
+classic branch protection needs admin read, and a repository whose protection
+cannot be read stops the run. It needs gh, jq and unzip. Pin the action by commit SHA.
 
 ## plant guard
 

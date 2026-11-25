@@ -172,8 +172,10 @@ the workflows or the config. --format json prints schema plant.guard.v1.
 const CENSUS: &str = r#"plant census DIR --month YYYY-MM [--format text|json]
 
 Counts, per repository, the required checks that a planted input turned red.
-It is a pure function of files; it fetches nothing. DIR holds one
-OWNER/REPO directory per repository:
+It is a pure function of files; it fetches nothing.
+scripts/census-collect.sh DIR OWNER/REPO... fills DIR from GitHub with the
+caller's own gh login (classic branch protection needs admin read). DIR holds
+one OWNER/REPO directory per repository:
 
   repo.toml              default_branch = "main"
                          required = ["Test", "Lint"]   # the required contexts

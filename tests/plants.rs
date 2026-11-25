@@ -16,6 +16,18 @@ use std::path::Path;
 /// (control id, source file, text replaced, replacement)
 const PLANTS: &[(&str, &str, &str, &str)] = &[
     (
+        "collect-oldest-report",
+        "scripts/census-collect.sh",
+        "sort_by(.created_at) | last | .id",
+        "sort_by(.created_at) | first | .id",
+    ),
+    (
+        "collect-unreadable-as-empty",
+        "scripts/census-collect.sh",
+        "  elif grep -q 'HTTP 404' \"$work/err\"; then",
+        "  elif true; then",
+    ),
+    (
         "action-uploads-other-file",
         "action.yml",
         "        path: ${{ runner.temp }}/plant-report\n",
