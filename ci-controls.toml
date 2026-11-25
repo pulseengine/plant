@@ -93,3 +93,48 @@ run = "cargo run -q -- guard"
 plant = "ci-controls/guard-bad-label"
 stderr_or_stdout_matches = 'ci\.yml:\d+ \(self-controls\): runner label "\}\.\$l\.q\{" is not in plant-guard\.toml labels'
 
+
+# plant census (bet B): each plant breaks one condition for the fixture's one
+# covered context, acme/alpha Test; the census must name that reason.
+
+[[control]]
+id = "census-exit0-counted"
+check = "Test"
+run = "cargo test --test census census_matches_the_committed_expected_file"
+plant = "ci-controls/census-exit0-counted"
+stderr_or_stdout_matches = 'test-catches-overflow: the planted run exited 0'
+
+[[control]]
+id = "census-run-not-in-job"
+check = "Test"
+run = "cargo test --test census census_matches_the_committed_expected_file"
+plant = "ci-controls/census-run-not-in-job"
+stderr_or_stdout_matches = 'test-catches-overflow: run is not a whole command line of a step in the job'
+
+[[control]]
+id = "census-baseline-false"
+check = "Test"
+run = "cargo test --test census census_matches_the_committed_expected_file"
+plant = "ci-controls/census-baseline-false"
+stderr_or_stdout_matches = 'test-catches-overflow: baseline = false'
+
+[[control]]
+id = "census-stale-report"
+check = "Test"
+run = "cargo test --test census census_matches_the_committed_expected_file"
+plant = "ci-controls/census-stale-report"
+stderr_or_stdout_matches = 'test-catches-overflow: report dated 2026-10-31 is not in 2026-11'
+
+[[control]]
+id = "census-unverified-runner"
+check = "Test"
+run = "cargo test --test census census_matches_the_committed_expected_file"
+plant = "ci-controls/census-unverified-runner"
+stderr_or_stdout_matches = 'test-catches-overflow: report is not from a verified plant release'
+
+[[control]]
+id = "census-aggregate-counted"
+check = "Test"
+run = "cargo test --test census census_matches_the_committed_expected_file"
+plant = "ci-controls/census-aggregate-counted"
+stderr_or_stdout_matches = '"context": "Test",\s*"class": "aggregate"'

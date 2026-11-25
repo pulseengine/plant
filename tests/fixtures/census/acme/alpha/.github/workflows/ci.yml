@@ -1,0 +1,20 @@
+on: [push, pull_request]
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          cargo build --locked
+          cargo test --locked
+  lint:
+    name: Lint
+    runs-on: ubuntu-24.04
+    steps:
+      - run: cargo clippy -- -D warnings
+  all-green:
+    needs: [test, lint]
+    runs-on: ubuntu-24.04
+    steps:
+      - run: test "${{ needs.test.result }}" = success && test "${{ needs.lint.result }}" = success

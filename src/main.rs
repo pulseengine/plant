@@ -2,6 +2,7 @@
 //!
 //! Work in progress. See docs/DESIGN.md for the target behaviour.
 
+mod census;
 mod control;
 mod docs;
 mod guard;
@@ -57,6 +58,17 @@ enum Cmd {
         #[arg(long)]
         generated_at: Option<String>,
     },
+    /// Count the required checks a planted input turned red, per repository
+    Census {
+        /// Directory holding one OWNER/REPO directory per repository
+        dir: PathBuf,
+        /// The layer month the reports must be from, e.g. 2026-11
+        #[arg(long)]
+        month: String,
+        /// Output format
+        #[arg(long, value_enum, default_value_t = Format::Text)]
+        format: Format,
+    },
     /// Check that no workflow can route a fork pull request to a self-hosted runner
     Guard {
         /// Repository root holding .github/workflows
@@ -93,6 +105,25 @@ fn main() -> ExitCode {
             Err(e) => {
                 eprintln!("plant north-star: {e}");
                 ExitCode::from(2)
+            }
+        };
+    }
+    if let Some(Cmd::Census { dir, month, format }) = &cli.command {
+        return match census::run(dir, month) {
+            Err(e) => {
+                eprintln!("plant census: {e}");
+                ExitCode::from(2)
+            }
+            Ok(c) if c.repos.is_empty() => {
+                eprintln!("plant census: no repository found; nothing compared");
+                ExitCode::from(1)
+            }
+            Ok(c) => {
+                match format {
+                    Format::Text => print!("{}", census::text(&c)),
+                    Format::Json => print!("{}", census::json(&c)),
+                }
+                ExitCode::SUCCESS
             }
         };
     }

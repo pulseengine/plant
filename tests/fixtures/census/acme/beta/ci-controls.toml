@@ -1,0 +1,13 @@
+[[control]]
+id = "build-release"
+check = "Build"
+run = "cargo build --release"
+plant = "ci-controls/broken"
+stderr_or_stdout_matches = 'error\['
+
+[[control]]
+id = "docs-link"
+check = "Docs"
+run = "mdbook build"
+plant = "ci-controls/dead-link"
+baseline = false

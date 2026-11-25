@@ -16,6 +16,59 @@ use std::path::Path;
 /// (control id, source file, text replaced, replacement)
 const PLANTS: &[(&str, &str, &str, &str)] = &[
     (
+        "census-exit0-counted",
+        "tests/fixtures/census/acme/alpha/report.json",
+        "\"Test\", \"status\": \"PASS\", \"baseline\": \"green\", \"planted_exit\": 101}",
+        "\"Test\", \"status\": \"PASS\", \"baseline\": \"green\", \"planted_exit\": 0}",
+    ),
+    (
+        "census-run-not-in-job",
+        "tests/fixtures/census/acme/alpha/ci-controls.toml",
+        "check = \"Test\"
+run = \"cargo test --locked\"",
+        "check = \"Test\"
+run = \"cargo test\"",
+    ),
+    (
+        "census-baseline-false",
+        "tests/fixtures/census/acme/alpha/ci-controls.toml",
+        "stderr_or_stdout_matches = 'attempt to add with overflow'
+",
+        "stderr_or_stdout_matches = 'attempt to add with overflow'
+baseline = false
+",
+    ),
+    (
+        "census-stale-report",
+        "tests/fixtures/census/acme/alpha/report.json",
+        "\"date\": \"2026-11-20\"",
+        "\"date\": \"2026-10-31\"",
+    ),
+    (
+        "census-unverified-runner",
+        "tests/fixtures/census/acme/alpha/report.json",
+        "\"plant_verified\": true",
+        "\"plant_verified\": false",
+    ),
+    (
+        "census-aggregate-counted",
+        "tests/fixtures/census/acme/alpha/.github/workflows/ci.yml",
+        "    name: Test
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          cargo build --locked
+          cargo test --locked
+",
+        "    name: Test
+    needs: [lint]
+    runs-on: ubuntu-24.04
+    steps:
+      - run: test \"${{ needs.lint.result }}\" = success
+",
+    ),
+    (
         "fail-open",
         "src/verdict.rs",
         "        Outcome::Exited(0) => {

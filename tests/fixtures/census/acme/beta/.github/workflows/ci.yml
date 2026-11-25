@@ -1,0 +1,11 @@
+on: pull_request
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-24.04
+    steps:
+      - run: cargo build
+  Docs:
+    runs-on: ubuntu-24.04
+    steps:
+      - run: mdbook build

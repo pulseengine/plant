@@ -1,0 +1,6 @@
+[[control]]
+id = "check-null"
+check = "Check"
+run = "make check"
+plant = "ci-controls/null"
+stderr_or_stdout_matches = 'null'
