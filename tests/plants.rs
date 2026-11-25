@@ -16,6 +16,18 @@ use std::path::Path;
 /// (control id, source file, text replaced, replacement)
 const PLANTS: &[(&str, &str, &str, &str)] = &[
     (
+        "action-uploads-other-file",
+        "action.yml",
+        "        path: ${{ runner.temp }}/plant-report\n",
+        "        path: ${{ runner.temp }}/plant-report.txt\n",
+    ),
+    (
+        "action-upload-skipped-on-red",
+        "action.yml",
+        "      if: always() && inputs.artifact != ''",
+        "      if: inputs.artifact != ''",
+    ),
+    (
         "install-wrong-identity",
         "action/install.sh",
         "identity=\"https://github.com/pulseengine/plant/.github/workflows/release.yml@refs/tags/$tag\"",

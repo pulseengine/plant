@@ -111,8 +111,9 @@ fn inputs_reach_plant_as_arguments() {
     );
 }
 
-// Expressions in action.yml may only feed env: values (or the outputs map),
-// never a run: script, where an input could inject shell code.
+// Expressions in action.yml may only feed env: values, the outputs map, or
+// the name and path inputs of the upload step, never a run: script, where an
+// input could inject shell code.
 // rivet: verifies REQ-009
 #[test]
 fn action_yml_keeps_expressions_out_of_scripts() {
@@ -120,15 +121,54 @@ fn action_yml_keeps_expressions_out_of_scripts() {
     let env_line =
         regex::Regex::new(r"^\s+[A-Z_]+: \$\{\{ [a-z_.]+ \}\}[A-Za-z0-9_./-]*$").unwrap();
     let value_line = regex::Regex::new(r"^\s+value: \$\{\{ [a-z_.]+ \}\}$").unwrap();
+    let upload_line =
+        regex::Regex::new(r"^\s+(name|path): \$\{\{ [a-z_.]+ \}\}[A-Za-z0-9_./-]*$").unwrap();
     let mut seen = 0;
     for line in text.lines().filter(|l| l.contains("${{")) {
         seen += 1;
         assert!(
-            env_line.is_match(line) || value_line.is_match(line),
+            env_line.is_match(line) || value_line.is_match(line) || upload_line.is_match(line),
             "expression outside env/value: {line:?}"
         );
     }
     assert!(seen > 0, "no expressions found: nothing was compared");
+}
+
+// The upload step uploads the file the run step writes, and also after a red
+// run: a failed control's report is the one a reader needs (plan bet B).
+// rivet: verifies REQ-016
+#[test]
+fn action_uploads_the_report_it_writes_even_when_plant_fails() {
+    use yaml_rust2::YamlLoader;
+    let text = fs::read_to_string(root().join("action.yml")).unwrap();
+    let doc = &YamlLoader::load_from_str(&text).unwrap()[0];
+    let steps = doc["runs"]["steps"].as_vec().unwrap();
+    let run = steps
+        .iter()
+        .find(|s| s["id"].as_str() == Some("run"))
+        .expect("no run step");
+    let written = run["env"]["PLANT_REPORT"].as_str().unwrap();
+    let uploads: Vec<_> = steps
+        .iter()
+        .filter(|s| {
+            s["uses"]
+                .as_str()
+                .is_some_and(|u| u.starts_with("actions/upload-artifact@"))
+        })
+        .collect();
+    assert_eq!(uploads.len(), 1, "expected one upload step");
+    let up = uploads[0];
+    assert_eq!(
+        up["with"]["path"].as_str(),
+        Some(written),
+        "the upload step uploads another file than the run step writes"
+    );
+    assert_eq!(up["with"]["name"].as_str(), Some("${{ inputs.artifact }}"));
+    let cond = up["if"].as_str().unwrap_or("");
+    assert!(
+        cond.starts_with("always() &&") && cond.contains("inputs.artifact != ''"),
+        "the report upload is skipped when plant fails: if = {cond:?}"
+    );
 }
 
 /// A stand-in for plant --format json: a pretty report as plant prints it.

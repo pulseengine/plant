@@ -25,6 +25,11 @@ inputs:
       plant release to install and verify, e.g. 0.5.0 (default: build from the
       action's source). A json report then records plant_verified = true.
     default: ""
+  artifact:
+    description: >-
+      Name of the CI artifact the report is uploaded as, even when plant fails
+      (empty: no upload). Give each plant step in a workflow its own name.
+    default: plant-report
 
 outputs:
   report:
@@ -68,3 +73,10 @@ runs:
       run: |
         echo "report=$PLANT_REPORT" >> "$GITHUB_OUTPUT"
         "$PLANT_ACTION/action/run.sh"
+    - name: upload the report
+      if: always() && inputs.artifact != ''
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+      with:
+        name: ${{ inputs.artifact }}
+        path: ${{ runner.temp }}/plant-report
+        if-no-files-found: warn

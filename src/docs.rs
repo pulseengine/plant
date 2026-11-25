@@ -180,9 +180,11 @@ OWNER/REPO directory per repository:
   .github/workflows/     the workflows; a job's name (or id) is its context
   ci-controls.toml       the repository's manifest (optional)
   report.json            plant --format json output (schema plant.report.v1),
-                         plus a "run" block added by the collector (optional):
+                         plus a "run" block (optional):
                          {"branch": "main", "date": "2026-11-20",
                           "plant_verified": true}
+                         The GitHub Action adds the run block and uploads
+                         the report as the CI artifact plant-report.
 
 Each required context gets one class:
   covered             a control whose check names the context meets all five:
