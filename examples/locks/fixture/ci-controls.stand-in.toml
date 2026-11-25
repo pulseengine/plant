@@ -25,3 +25,13 @@ run = "cargo audit --quiet --deny warnings --file Cargo.lock && cargo metadata -
 plant = "ci-controls/lock-vulnerable-nested"
 stderr_or_stdout_matches = 'RUSTSEC-2020-0071'
 timeout = 600
+
+# A gate that checks only that the nested lock is binding. The vulnerable
+# plant is binding, so only an audit can reject it: FAIL-OPEN here.
+[[control]]
+id = "lock-vulnerable-nested-freshness-only"
+check = "freshness only"
+run = "cd tools && cargo metadata --locked --format-version 1 >/dev/null"
+plant = "ci-controls/lock-vulnerable-nested"
+stderr_or_stdout_matches = 'RUSTSEC-2020-0071'
+timeout = 600
