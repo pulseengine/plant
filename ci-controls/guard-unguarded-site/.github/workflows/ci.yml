@@ -66,6 +66,8 @@ jobs:
           CARGO_TARGET_DIR: ${{ runner.temp }}/plant-controls-target
         with:
           format: json
+          # plant's controls run cargo test and print no secrets.
+          artifact: plant-report
 
   sieve-controls:
     name: sieve false-skip controls

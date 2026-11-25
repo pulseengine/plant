@@ -57,6 +57,20 @@ plant = "ci-controls/action-allows-prt"
 stderr_or_stdout_matches = 'plant ran under pull_request_target'
 
 [[control]]
+id = "action-uploads-other-file"
+check = "Test"
+run = "cargo test --test action action_uploads_the_report_it_writes_even_when_plant_fails"
+plant = "ci-controls/action-uploads-other-file"
+stderr_or_stdout_matches = 'uploads another file than the run step writes'
+
+[[control]]
+id = "action-upload-skipped-on-red"
+check = "Test"
+run = "cargo test --test action action_uploads_the_report_it_writes_even_when_plant_fails"
+plant = "ci-controls/action-upload-skipped-on-red"
+stderr_or_stdout_matches = 'the report upload is skipped when plant fails'
+
+[[control]]
 id = "release-tag-mismatch"
 check = "Test"
 run = "cargo test --test release version_guard_rejects_a_mismatch"
