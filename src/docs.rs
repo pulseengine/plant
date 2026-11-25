@@ -183,8 +183,8 @@ OWNER/REPO directory per repository:
                          plus a "run" block (optional):
                          {"branch": "main", "date": "2026-11-20",
                           "plant_verified": true}
-                         The GitHub Action adds the run block and uploads
-                         the report as the CI artifact plant-report.
+                         The GitHub Action adds the run block, and with
+                         artifact: plant-report uploads the report.
 
 Each required context gets one class:
   covered             a control whose check names the context meets all five:

@@ -61,7 +61,7 @@ jobs:
           only: ""                      # space-separated ids, default all
           format: text                  # or json
           version: ""                   # e.g. 0.5.0: install that release
-          artifact: plant-report        # CI artifact name; "" uploads nothing
+          artifact: ""                  # e.g. plant-report: upload the report
 ```
 
 With `version` set, the action installs that plant release and verifies it
@@ -73,7 +73,10 @@ bash, refuses to run under `pull_request_target`, and fails the step with
 plant's exit code. With `format: json`, the report carries a `run` block
 (branch, date, `plant_verified`) that `plant census` reads. The report is
 uploaded as the CI artifact named by `artifact`, also when plant fails; give
-each plant step in a workflow its own name. Pin the action by commit SHA.
+each plant step in a workflow its own name. The upload is off by default: the
+report holds the tail of each control's command output, and GitHub masks
+secrets in the log but not in artifacts. Turn it on only when no control's
+command can print a secret. Pin the action by commit SHA.
 
 ## plant guard
 

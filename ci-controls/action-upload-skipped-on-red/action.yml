@@ -27,9 +27,11 @@ inputs:
     default: ""
   artifact:
     description: >-
-      Name of the CI artifact the report is uploaded as, even when plant fails
-      (empty: no upload). Give each plant step in a workflow its own name.
-    default: plant-report
+      Upload the report as a CI artifact of this name, also when plant fails
+      (default: no upload). The report holds the tail of each control's command
+      output, and an artifact is not masked like the log is: leave it empty if a
+      control's command can print a secret. Give each plant step its own name.
+    default: ""
 
 outputs:
   report:
