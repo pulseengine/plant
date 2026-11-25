@@ -60,11 +60,18 @@ jobs:
           manifest: ci-controls.toml   # default
           only: ""                      # space-separated ids, default all
           format: text                  # or json
+          version: ""                   # e.g. 0.5.0: install that release
 ```
 
-The action builds plant from its own source (the runner needs Rust, git, tar
-and bash), refuses to run under `pull_request_target`, and fails the step with
-plant's exit code. Pin it by commit SHA.
+With `version` set, the action installs that plant release and verifies it
+before running it. The sums must be signed by plant's own release workflow for
+exactly that tag (cosign), the archive must match its signed sha256, and the
+binary must report the version; it needs curl and tar. Without `version` it
+builds plant from its own source, which needs Rust. Either way it needs git and
+bash, refuses to run under `pull_request_target`, and fails the step with
+plant's exit code. With `format: json`, the report carries a `run` block
+(branch, date, `plant_verified`) that `plant census` reads. Pin the action by
+commit SHA.
 
 ## plant guard
 

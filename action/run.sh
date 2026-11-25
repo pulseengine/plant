@@ -18,6 +18,20 @@ done
 report="${PLANT_REPORT:-plant-report.txt}"
 rc=0
 "${PLANT_BIN:-plant}" "${args[@]}" >"$report" || rc=$?
+
+# A json report gets the run block plant census reads (plant docs census):
+# the branch, the UTC date, and whether this plant is a verified release
+# (installed by action/install.sh because a version was given).
+if [ "${PLANT_FORMAT:-text}" = json ] && [ "$(head -c 1 "$report")" = "{" ]; then
+  verified=false
+  [ -n "${PLANT_VERSION:-}" ] && verified=true
+  branch=${GITHUB_REF_NAME:-}
+  branch=${branch//\\/\\\\}
+  branch=${branch//\"/\\\"}
+  run_line="  \"run\": {\"branch\": \"$branch\", \"date\": \"$(date -u +%Y-%m-%d)\", \"plant_verified\": $verified},"
+  { head -n 1 "$report"; printf '%s\n' "$run_line"; tail -n +2 "$report"; } >"$report.tmp"
+  mv "$report.tmp" "$report"
+fi
 cat "$report"
 
 if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then

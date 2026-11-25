@@ -130,3 +130,56 @@ fn action_yml_keeps_expressions_out_of_scripts() {
     }
     assert!(seen > 0, "no expressions found: nothing was compared");
 }
+
+/// A stand-in for plant --format json: a pretty report as plant prints it.
+fn fake_json_plant(dir: &Path) -> PathBuf {
+    let p = dir.join("fake-json-plant");
+    fs::write(
+        &p,
+        "#!/bin/sh\nprintf '{\\n  \"schema\": \"plant.report.v1\",\\n  \"controls\": []\\n}\\n'\n",
+    )
+    .unwrap();
+    Command::new("chmod").arg("+x").arg(&p).status().unwrap();
+    p
+}
+
+// A json report from the action carries the run block plant census reads;
+// plant_verified is true only when a release version was installed.
+// rivet: verifies REQ-016
+#[test]
+fn json_report_gets_the_census_run_block() {
+    for (version, verified) in [("0.5.0", true), ("", false)] {
+        let t = tmp("runblock");
+        let bin = fake_json_plant(&t.0);
+        let out = run_sh(
+            &t.0,
+            &[
+                ("PLANT_BIN", bin.to_str().unwrap()),
+                ("PLANT_FORMAT", "json"),
+                ("PLANT_VERSION", version),
+                ("GITHUB_REF_NAME", "ma\"in"),
+            ],
+        );
+        assert!(out.status.success(), "{out:?}");
+        let v: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(t.0.join("report")).unwrap()).unwrap();
+        assert_eq!(v["schema"], "plant.report.v1");
+        assert_eq!(v["run"]["branch"], "ma\"in");
+        assert_eq!(v["run"]["plant_verified"], verified, "version {version:?}");
+        let date = v["run"]["date"].as_str().unwrap();
+        assert!(date.len() == 10 && date.as_bytes()[4] == b'-', "{date}");
+    }
+}
+
+// The verified install pins the signer to plant's own release workflow for
+// exactly the requested tag; no environment variable can change it.
+// rivet: verifies REQ-016
+#[test]
+fn install_pins_the_signer_identity_to_the_tag() {
+    let text = fs::read_to_string(root().join("action/install.sh")).unwrap();
+    assert!(text.contains(
+        "identity=\"https://github.com/pulseengine/plant/.github/workflows/release.yml@refs/tags/$tag\""
+    ));
+    assert!(text.contains("--certificate-identity \"$identity\""));
+    assert!(!text.contains("certificate-identity-regexp"));
+}
