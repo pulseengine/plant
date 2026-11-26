@@ -282,11 +282,13 @@ artifacts:
   - id: FEAT-013
     type: feature
     title: Required-check census and verified runner (O3 summary)
-    status: draft
-    release: v0.6.0
+    status: implemented
+    release: v0.5.1
     description: >
-      Draft scope for v0.4.0, pending the owner's decision. See
-      docs/plan/v0.4.0.md for acceptance and kill criteria.
+      Bet B of docs/plan/v0.4.0.md: `plant census` (#42), the action's
+      cosign-verified install and json run block (#45), the opt-in report
+      artifact (#47) and scripts/census-collect.sh (#50). Ships in v0.5.1
+      (owner decision 2026-11-26); bets C and D stay at v0.6.0.
     fields:
       phase: phase-2
     links:

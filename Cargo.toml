@@ -3,7 +3,7 @@ description = "Prove your CI checks can fail: run each check against planted bad
 license = "Apache-2.0"
 repository = "https://github.com/pulseengine/plant"
 name = "plant"
-version = "0.5.0"
+version = "0.5.1"
 edition = "2021"
 rust-version = "1.75"
 
