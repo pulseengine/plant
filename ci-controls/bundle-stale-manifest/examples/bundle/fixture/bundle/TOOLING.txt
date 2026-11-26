@@ -1,0 +1,3 @@
+Synthetic evidence bundle for plant examples/bundle; layout and verify.sh from wohl v0.7.0.
+verify.sh: byte copy of wohl v0.7.0 (sha256 a2807c63a18637c5e2137426927775e250e5fc1dc7e78fddf3a9adb416922493)
+sigil (wsc): v0.12.2, test key generated for this fixture

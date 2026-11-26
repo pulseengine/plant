@@ -1,0 +1,11 @@
+# Synthetic rivet trace export for plant's bundle pack (not wohl's).
+artifacts:
+  - id: REQ-FX-001
+    type: requirement
+    status: verified
+    links:
+      - type: verified-by
+        target: TEST-FX-001
+  - id: TEST-FX-001
+    type: test
+    status: passed

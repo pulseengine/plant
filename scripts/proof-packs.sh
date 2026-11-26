@@ -9,7 +9,8 @@
 #
 #   scripts/proof-packs.sh PLANT_BIN [PACK...]     default packs: lean kani
 #
-# A pack is examples/proof/PACK/fixture, or examples/PACK/fixture (locks).
+# A pack is examples/proof/PACK/fixture, or examples/PACK/fixture (locks,
+# bundle).
 #
 # Each fixture is copied into a throwaway git repository, since plant runs
 # on HEAD. Exit 0 when every manifest gave its expected verdicts, 1 otherwise,
