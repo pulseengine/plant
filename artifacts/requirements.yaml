@@ -254,7 +254,7 @@ artifacts:
   - id: REQ-017
     type: requirement
     title: plant ships negative controls for the one-command evidence bundle
-    status: draft
+    status: implemented
     release: v0.6.0
     description: >
       Serves O2 (guard: the verify command must fail when any piece of evidence is removed). examples/bundle shall hold controls that remove or alter each of the rivet trace, witness report and sigil attestation, all of which the verify command must reject, with a stand-in that only checks existence turning them FAIL-OPEN. Plan: bet C; dropped if no single verify command exists.

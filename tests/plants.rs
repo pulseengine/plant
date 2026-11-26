@@ -16,6 +16,18 @@ use std::path::Path;
 /// (control id, source file, text replaced, replacement)
 const PLANTS: &[(&str, &str, &str, &str)] = &[
     (
+        "bundle-verify-drift",
+        "examples/bundle/fixture/bundle/verify.sh",
+        "    || fail \"signature verifier exited non-zero (verifier: $VERIFIER)\"",
+        "    || true",
+    ),
+    (
+        "bundle-stale-manifest",
+        "examples/bundle/fixture/bundle/TOOLING.txt",
+        "sigil (wsc): v0.12.1",
+        "sigil (wsc): v0.12.2",
+    ),
+    (
         "collect-oldest-report",
         "scripts/census-collect.sh",
         "sort_by(.created_at) | last | .id",

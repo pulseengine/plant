@@ -85,6 +85,20 @@ plant = "ci-controls/collect-unreadable-as-empty"
 stderr_or_stdout_matches = 'an unreadable branch protection was read as no required checks'
 
 [[control]]
+id = "bundle-verify-drift"
+check = "Test"
+run = "cargo test --test bundle verify_sh_is_wohls_v0_7_0_copy"
+plant = "ci-controls/bundle-verify-drift"
+stderr_or_stdout_matches = 'drifted from wohl v0\.7\.0'
+
+[[control]]
+id = "bundle-stale-manifest"
+check = "Test"
+run = "cargo test --test bundle bundle_and_rewritten_manifests_match_their_files"
+plant = "ci-controls/bundle-stale-manifest"
+stderr_or_stdout_matches = 'TOOLING\.txt is stale in MANIFEST\.sha256'
+
+[[control]]
 id = "release-tag-mismatch"
 check = "Test"
 run = "cargo test --test release version_guard_rejects_a_mismatch"

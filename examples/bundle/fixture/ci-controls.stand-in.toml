@@ -1,0 +1,46 @@
+# Negative control for the pack: a stand-in verify command that only checks
+# the bundle exists. Every control must report FAIL-OPEN.
+
+
+[[control]]
+id = "trace-removed"
+check = "bundle exists"
+run = "test -s bundle/MANIFEST.sha256"
+plant = "ci-controls/trace-removed"
+stderr_or_stdout_matches = 'trace/trace-export\.yaml missing or empty'
+
+[[control]]
+id = "witness-removed"
+check = "bundle exists"
+run = "test -s bundle/MANIFEST.sha256"
+plant = "ci-controls/witness-removed"
+stderr_or_stdout_matches = 'witness/mcdc-report\.txt has no .gap-total: N. line'
+
+[[control]]
+id = "attestation-removed"
+check = "bundle exists"
+run = "test -s bundle/MANIFEST.sha256"
+plant = "ci-controls/attestation-removed"
+stderr_or_stdout_matches = 'signature verifier exited non-zero'
+
+[[control]]
+id = "trace-altered"
+check = "bundle exists"
+run = "test -s bundle/MANIFEST.sha256"
+plant = "ci-controls/trace-altered"
+stderr_or_stdout_matches = 'trace/coverage\.json: FAILED'
+
+[[control]]
+id = "witness-altered"
+check = "bundle exists"
+run = "test -s bundle/MANIFEST.sha256"
+plant = "ci-controls/witness-altered"
+stderr_or_stdout_matches = 'unresolved MC/DC gap row'
+
+[[control]]
+id = "attestation-altered"
+check = "bundle exists"
+run = "test -s bundle/MANIFEST.sha256"
+plant = "ci-controls/attestation-altered"
+stderr_or_stdout_matches = 'signature verifier exited non-zero|attestation signature did not verify'
+

@@ -298,11 +298,14 @@ artifacts:
   - id: FEAT-014
     type: feature
     title: Bundle negative controls (O2)
-    status: draft
+    status: implemented
     release: v0.6.0
     description: >
-      Draft scope for v0.4.0, pending the owner's decision. See
-      docs/plan/v0.4.0.md for acceptance and kill criteria.
+      examples/bundle: six controls (remove or alter each of trace, witness
+      report and attestation) against wohl v0.7.0's verify.sh on a synthetic
+      bundle, an exists-only stand-in turning all six FAIL-OPEN, and a blind
+      control for what verify.sh cannot see (a trace rewritten with its
+      manifest). Adoption in wohl needs the owner's approval.
     fields:
       phase: phase-2
     links:

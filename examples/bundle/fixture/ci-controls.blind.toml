@@ -1,0 +1,12 @@
+# What the real verify.sh cannot see: a trace altered together with a
+# rewritten MANIFEST.sha256 is consistent inside the bundle. Only the outer
+# chain (the release's cosign-signed SHA256SUMS over the bundle tarball)
+# rejects it. This control must report FAIL-OPEN.
+
+[[control]]
+id = "trace-rewritten"
+check = "bundle verify"
+run = "bundle/verify.sh"
+plant = "ci-controls/trace-rewritten"
+stderr_or_stdout_matches = 'trace'
+

@@ -1,0 +1,4 @@
+witness MC/DC report (synthetic, plant bundle pack)
+decisions: 1
+conditions: 2
+gap-total: 0
