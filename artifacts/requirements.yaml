@@ -242,8 +242,8 @@ artifacts:
   - id: REQ-016
     type: requirement
     title: plant census reports which required checks a planted input turned red
-    status: draft
-    release: v0.6.0
+    status: implemented
+    release: v0.5.1
     description: >
       Serves O3 (summary: each claim maps to a CI check that can fail); not the O3 indicator. `plant census` shall map required contexts, workflows, manifests and CI reports to plant.census.v1, counting a context as covered only when the control is bound to its job step, went red with a regex on a green baseline, and the report is fresh, from a default-branch CI run, and from a verified plant release. plant run reports shall carry the schema plant.report.v1. Plan: bet B.
     fields: {priority: should, category: functional}
