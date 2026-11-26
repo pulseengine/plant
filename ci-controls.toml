@@ -71,6 +71,20 @@ plant = "ci-controls/action-upload-skipped-on-red"
 stderr_or_stdout_matches = 'the report upload is skipped when plant fails'
 
 [[control]]
+id = "collect-oldest-report"
+check = "Test"
+run = "cargo test --test census_collect collect_writes_the_census_inputs_for_a_repository"
+plant = "ci-controls/collect-oldest-report"
+stderr_or_stdout_matches = 'collected a report other than the newest from the default branch'
+
+[[control]]
+id = "collect-unreadable-as-empty"
+check = "Test"
+run = "cargo test --test census_collect collect_stops_when_branch_protection_cannot_be_read"
+plant = "ci-controls/collect-unreadable-as-empty"
+stderr_or_stdout_matches = 'an unreadable branch protection was read as no required checks'
+
+[[control]]
 id = "release-tag-mismatch"
 check = "Test"
 run = "cargo test --test release version_guard_rejects_a_mismatch"
