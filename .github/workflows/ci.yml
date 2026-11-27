@@ -223,9 +223,28 @@ jobs:
           cargo build --locked
           cargo build --locked --target wasm32-wasip2 --release
           meld fuse --reproducible -o "$RUNNER_TEMP/plant.fused.wasm" target/wasm32-wasip2/release/plant.wasm
+      # Diagnostic (temporary): kiln musl hung on every case on 3e0b831.
+      - name: diagnose kiln hang
+        run: |
+          d="$RUNNER_TEMP/wasi-tools/kiln"
+          a="kiln-$KILN_VERSION-x86_64-unknown-linux-gnu.tar.gz"
+          curl -fsSL --retry 3 -o "$d/$a" "https://github.com/pulseengine/kiln/releases/download/$KILN_VERSION/$a"
+          want=$(awk -v a="$a" '$2 == "./" a || $2 == a { print $1 }' "$d/SHA256SUMS.txt")
+          [ -n "$want" ] && [ "$want" = "$(sha256sum "$d/$a" | cut -d" " -f1)" ]
+          mkdir -p "$d/gnu" && tar -xzf "$d/$a" -C "$d/gnu"
+          gnu=$(find "$d/gnu" -type f -name kiln | head -1)
+          nproc; free -m || true; ulimit -a
+          for k in "$(command -v kiln)" "$gnu"; do
+            echo "== $k"; file "$k" || true
+            set +e
+            RUST_LOG=debug RUST_BACKTRACE=1 timeout 60 "$k" --wasi --component --dir . "$RUNNER_TEMP/plant.fused.wasm" --version </dev/null >"$RUNNER_TEMP/k.out" 2>"$RUNNER_TEMP/k.err"
+            echo "exit $?"; set -e
+            head -c 2000 "$RUNNER_TEMP/k.out"; echo "-- stderr (last 60 lines)"; tail -60 "$RUNNER_TEMP/k.err"
+          done
       - name: guard under kiln matches native
         env:
           WASM_RUNTIME: kiln --wasi --component --dir .
+          WASM_TIMEOUT: "30"
         run: scripts/guard-wasi.sh "$RUNNER_TEMP/plant.fused.wasm" target/debug/plant
       # Control kiln-exit-collapse: the build without the std::process::exit
       # call must turn the kiln parity check red.
