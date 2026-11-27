@@ -1,5 +1,6 @@
-# Control for plant guard as a WASI component under kiln (REQ-018, CI job
-# "guard (kiln)", advisory). kiln runs meld-fused components, so the run fuses
+# Control for plant guard as a WASI component under kiln (REQ-018). CI job
+# "guard (kiln)" is parked until kiln v0.9.1: 0.9.0 hangs on x86_64 Linux
+# (kiln#748). kiln runs meld-fused components, so the run fuses
 # the wasm32-wasip2 build with meld first. Run from the repo root:
 #   CARGO_TARGET_DIR=<dir outside the repo> plant ci-controls.kiln.toml
 # (needs meld, kiln and the wasm32-wasip2 target)

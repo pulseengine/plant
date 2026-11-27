@@ -115,9 +115,11 @@ CI job `guard (wasi)` runs it under wasmtime 50.0.2 and requires the native
 guard's stdout and exit code on plant's own workflows and
 `tests/fixtures/guard-wasi`. Two planted controls in `ci-controls.wasi.toml`
 show the job can fail: an unguarded workflow, and a build whose exit codes
-collapse to 0/1. CI job `guard (kiln)` (advisory) runs the same parity check
-with kiln 0.9.0 on the meld-fused component (`meld fuse --reproducible`),
-with one planted control in `ci-controls.kiln.toml`. Build it with Rust 1.100 or later: with 1.99.1, exit 2 reaches
+collapse to 0/1. Under kiln 0.9.0 the meld-fused component
+(`meld fuse --reproducible`) agrees with native on the same 7 cases on aarch64
+macOS, and `ci-controls.kiln.toml` holds one planted control for it. CI does
+not run kiln yet: 0.9.0 hangs on x86_64 Linux (kiln#748); the advisory
+`guard (kiln)` job comes back with kiln v0.9.1. Build it with Rust 1.100 or later: with 1.99.1, exit 2 reaches
 the host as 1.
 
 ```sh

@@ -59,7 +59,9 @@ fn wasi_manifest_names_each_plant_and_the_test_that_goes_red() {
 
 // rivet: verifies REQ-018
 #[test]
-fn kiln_manifest_reuses_a_wasi_plant_and_runs_in_ci() {
+// CI does not run it yet: kiln 0.9.0 hangs on x86_64 Linux (kiln#748, fixed by
+// kiln#737 in v0.9.1). The guard (kiln) job returns with that release.
+fn kiln_manifest_reuses_a_wasi_plant() {
     let m: toml::Table = read("ci-controls.kiln.toml").parse().unwrap();
     let controls = m["control"].as_array().unwrap();
     assert!(
@@ -74,8 +76,4 @@ fn kiln_manifest_reuses_a_wasi_plant_and_runs_in_ci() {
             "{plant} is not a wasi-controls plant"
         );
     }
-    assert!(
-        read(".github/workflows/ci.yml").contains("target/debug/plant ci-controls.kiln.toml"),
-        "the guard (kiln) job must run ci-controls.kiln.toml"
-    );
 }
