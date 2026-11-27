@@ -109,6 +109,21 @@ plant guard            # exit 0 ok, 1 violation or nothing compared, 2 could not
 plant docs guard       # the full rules
 ```
 
+`plant guard` also builds as a WASI (p2) component, work in progress. The
+component build leaves out the controls runner, which starts a shell and git.
+CI job `guard (wasi)` runs it under wasmtime 50.0.2 and requires the native
+guard's stdout and exit code on plant's own workflows and
+`tests/fixtures/guard-wasi`. Two planted controls in `ci-controls.wasi.toml`
+show the job can fail: an unguarded workflow, and a build whose exit codes
+collapse to 0/1. Build it with Rust 1.100 or later: with 1.99.1, exit 2 reaches
+the host as 1.
+
+```sh
+cargo build --locked --target wasm32-wasip2 --release
+wasmtime run -S cli-exit-with-code=y --dir .::. \
+  target/wasm32-wasip2/release/plant.wasm guard .
+```
+
 ## Licence
 
 Apache-2.0.

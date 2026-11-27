@@ -1,0 +1,5 @@
+# The Rust release CI uses (dtolnay/rust-toolchain in every workflow). Local
+# builds must match: Rust 1.99 builds a WASI component whose exit 2 reaches the
+# host as 1 (no exit-with-code import).
+[toolchain]
+channel = "1.100.0"

@@ -167,6 +167,12 @@ guard in the repository that owns it.
 
 Exit: 0 all fail-closed, 1 a violation or nothing compared, 2 could not read
 the workflows or the config. --format json prints schema plant.guard.v1.
+
+As a WASI component (work in progress): `cargo build --target wasm32-wasip2`
+builds plant without the controls runner; run it with
+`wasmtime run -S cli-exit-with-code=y --dir .::. plant.wasm guard .`. Exit
+codes 0, 1 and 2 survive (std::process::exit, built with Rust 1.100). CI holds
+its output and exit code equal to the native guard's (scripts/guard-wasi.sh).
 "#;
 
 const CENSUS: &str = r#"plant census DIR --month YYYY-MM [--format text|json]
