@@ -266,7 +266,7 @@ artifacts:
   - id: REQ-018
     type: requirement
     title: plant guard runs as a signed WASI component with an equivalence test
-    status: draft
+    status: approved
     release: v0.6.0
     description: >
       Serves O5 (indicator: tools and gates running as signed WASI components under kiln, wasmtime as the differential). plant guard shall build from a pure core for wasm32-wasip2, be signed in the release, and be held byte-identical to the native plant guard by a CI equivalence job under wasmtime and kiln. Plan: bet D; gated on kiln running a wasip2 command component.

@@ -1,0 +1,7 @@
+# plant control wasi-guard-unguarded: a self-hosted job with no fork guard.
+on: [pull_request]
+jobs:
+  planted:
+    runs-on: [self-hosted, linux, x64, light]
+    steps:
+      - run: "true"

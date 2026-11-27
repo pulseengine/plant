@@ -3,14 +3,20 @@
 //! Work in progress. See docs/DESIGN.md for the target behaviour.
 
 mod census;
+#[cfg(not(target_os = "wasi"))]
 mod control;
 mod docs;
 mod guard;
+#[cfg_attr(target_os = "wasi", allow(dead_code))]
 mod manifest;
 mod northstar;
+#[cfg(not(target_os = "wasi"))]
 mod report;
+#[cfg(not(target_os = "wasi"))]
 mod runner;
+#[cfg(not(target_os = "wasi"))]
 mod scratch;
+#[cfg(not(target_os = "wasi"))]
 mod verdict;
 
 use std::path::PathBuf;
@@ -21,6 +27,7 @@ use clap::{Parser, Subcommand, ValueEnum};
 #[derive(Parser)]
 #[command(
     name = "plant",
+    bin_name = "plant",
     version,
     about = "Prove your CI checks can fail: run each one against a planted bad input",
     args_conflicts_with_subcommands = true,
@@ -90,7 +97,33 @@ enum Format {
 }
 
 fn main() -> ExitCode {
-    let cli = Cli::parse();
+    let code = plant_main();
+    #[cfg(target_os = "wasi")]
+    wasi_exit(code);
+    code
+}
+
+/// On wasm32-wasip2, both returning an ExitCode and std::process::exit map
+/// every nonzero code to 1 (measured, Rust 1.100, wasmtime 50.0.2), so a
+/// "could not run" (2) would read as "a control failed" (1). wasi:cli/exit's
+/// exit-with-code keeps it. wasmtime 50.0.2 ran it with and without
+/// `-S cli-exit-with-code=y`; CI passes the flag.
+#[cfg(target_os = "wasi")]
+fn wasi_exit(code: ExitCode) {
+    if code != ExitCode::SUCCESS {
+        let n = if code == ExitCode::from(1) { 1 } else { 2 };
+        wasip2::cli::exit::exit_with_code(n);
+    }
+}
+
+fn plant_main() -> ExitCode {
+    let cli = match Cli::try_parse() {
+        Ok(cli) => cli,
+        Err(e) => {
+            let _ = e.print();
+            return ExitCode::from(if e.use_stderr() { 2 } else { 0 });
+        }
+    };
     if let Some(Cmd::NorthStar {
         input,
         version,
@@ -166,6 +199,23 @@ fn main() -> ExitCode {
             },
         };
     }
+    run_controls(&cli)
+}
+
+/// Running controls spawns a shell and git, which a WASI component cannot do
+/// on its own; the component build carries guard, census, docs and
+/// north-star only (REQ-018).
+#[cfg(target_os = "wasi")]
+fn run_controls(_cli: &Cli) -> ExitCode {
+    eprintln!(
+        "plant: running controls needs a host shell and git; this WASI build runs only \
+         guard, census, docs and north-star"
+    );
+    ExitCode::from(2)
+}
+
+#[cfg(not(target_os = "wasi"))]
+fn run_controls(cli: &Cli) -> ExitCode {
     runner::install_signal_handlers();
     match control::run_manifest(&cli.manifest, &cli.only) {
         Err(e) => {

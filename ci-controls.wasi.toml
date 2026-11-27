@@ -1,0 +1,25 @@
+# Controls for plant guard as a WASI component (REQ-018, CI job "guard (wasi)").
+# Run from the repo root with the component and native builds' target dir:
+#   CARGO_TARGET_DIR=<dir outside the repo> plant ci-controls.wasi.toml
+# (needs wasmtime and the wasm32-wasip2 target)
+
+# A planted self-hosted job with no fork guard: the component must reject
+# plant's own tree, as the native guard does.
+[[control]]
+id = "wasi-guard-unguarded"
+check = "guard (wasi)"
+run = 'cargo build --locked -q --target wasm32-wasip2 --release && wasmtime run -S cli-exit-with-code=y --dir .::. "$CARGO_TARGET_DIR/wasm32-wasip2/release/plant.wasm" guard .'
+plant = "wasi-controls/unguarded-workflow"
+stderr_or_stdout_matches = 'planted\.yml:5 \(planted\): runs-on is not a hosted image'
+timeout = 900
+
+# std's exit on WASI maps every nonzero code to 1. Without the exit-with-code
+# call, "could not run" (2) reads as "violations" (1), and the parity check
+# must say so.
+[[control]]
+id = "wasi-exit-collapse"
+check = "guard (wasi)"
+run = 'cargo build --locked -q --target wasm32-wasip2 --release && cargo build --locked -q && scripts/guard-wasi.sh "$CARGO_TARGET_DIR/wasm32-wasip2/release/plant.wasm" "$CARGO_TARGET_DIR/debug/plant"'
+plant = "wasi-controls/exit-collapse"
+stderr_or_stdout_matches = 'bad-config: wasm exit 1, native exit 2, want 2'
+timeout = 900

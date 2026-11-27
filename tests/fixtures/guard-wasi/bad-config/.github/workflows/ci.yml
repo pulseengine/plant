@@ -1,0 +1,6 @@
+on: [pull_request]
+jobs:
+  a:
+    runs-on: [self-hosted, light]
+    steps:
+      - run: "true"

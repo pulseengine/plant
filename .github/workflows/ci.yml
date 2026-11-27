@@ -120,6 +120,55 @@ jobs:
       - name: lockfile pack
         run: scripts/proof-packs.sh target/debug/plant locks
 
+  guard-wasi:
+    name: guard (wasi)
+    # Fork PRs never reach self-hosted runners (fail-closed same-repo guard).
+    runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && fromJSON('["self-hosted","linux","x64","light"]') || 'ubuntu-24.04' }}
+    env:
+      WASMTIME_VERSION: 50.0.2
+      # sha256 of wasmtime-v50.0.2-x86_64-linux.tar.xz, recorded on 2026-11-27
+      # after gh attestation verify accepted it (signer: wasmtime's
+      # publish-artifacts.yml at refs/tags/v50.0.2).
+      WASMTIME_SHA256: 5db0ca8e838ab95a51ba9acdf11f42888bcd0092dda45a86129ae540c4fa952c
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@df2a88e9fe4098bad09cb42c3dec7187f15861fc # master, 2026-11-15
+        with:
+          toolchain: 1.100.0
+          targets: wasm32-wasip2
+      # Accepted only when GitHub's attestation names wasmtime's own release
+      # workflow at that tag, and the archive matches the pinned sha256.
+      - name: install wasmtime
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          d="$RUNNER_TEMP/wasmtime"
+          a="wasmtime-v$WASMTIME_VERSION-x86_64-linux"
+          mkdir -p "$d"
+          gh release download "v$WASMTIME_VERSION" -R bytecodealliance/wasmtime -p "$a.tar.xz" -D "$d"
+          gh attestation verify "$d/$a.tar.xz" --repo bytecodealliance/wasmtime \
+            --signer-workflow bytecodealliance/wasmtime/.github/workflows/publish-artifacts.yml \
+            --source-ref "refs/tags/v$WASMTIME_VERSION"
+          echo "$WASMTIME_SHA256  $d/$a.tar.xz" | sha256sum -c -
+          tar -xJf "$d/$a.tar.xz" -C "$d"
+          echo "$d/$a" >> "$GITHUB_PATH"
+      - name: build plant natively and for wasm32-wasip2
+        run: |
+          cargo build --locked
+          cargo build --locked --target wasm32-wasip2 --release
+      # The component must print what the native guard prints and exit with
+      # the same code (0, 1 or 2) on plant's own tree and the fixtures.
+      - name: guard under wasmtime matches native
+        run: scripts/guard-wasi.sh target/wasm32-wasip2/release/plant.wasm target/debug/plant
+      # Controls wasi-guard-unguarded and wasi-exit-collapse: a planted
+      # unguarded workflow, and the build without exit-with-code.
+      - name: plant on ci-controls.wasi.toml
+        run: |
+          export CARGO_TARGET_DIR="$RUNNER_TEMP/plant-wasi-target"
+          target/debug/plant ci-controls.wasi.toml
+
   action-install:
     name: action install
     # Needs network: it downloads a plant release and verifies it with cosign.
