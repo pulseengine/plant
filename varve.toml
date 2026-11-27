@@ -8,10 +8,9 @@ manifest-version = 1
 [toolchain]
 realm   = "covalent"
 channel = "rolling"
-layer   = "2026.11.16"
-# From `varve list` after `varve install` (counter 17). The layer's manifest is
-# signed and `varve verify` checks it against the covalent trust root (and each
-# composed layer against its own realm). Only the realm's signed line-index,
-# which lists the line's layers, does not name 2026.11.16 yet
-# (covalent-layers#98); with the digest, varve resolves this layer exactly.
-digest  = "sha256:a38d3e3405419a6ffef1c92a9c2a42781b9bc0ef34cdb5feb9e8970e429aa44c"
+layer   = "2026.11.28"
+# From `varve list` after `varve install` (counter 29), on 2026-11-27: the first
+# covalent layer with kiln 0.9.0 and meld 0.70.0, which ci-controls.kiln.toml
+# was verified with (locally; CI's guard (kiln) job is parked on kiln#748). The realm's signed line-index names it (greatest counter 29), and
+# `varve verify` checks the manifest against the covalent trust root.
+digest  = "sha256:da7f6b48f875349c020e46ba52958f022db4c03b90b70bf91c718ccbbebbbbce"
