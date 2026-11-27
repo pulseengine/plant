@@ -1,0 +1,15 @@
+# Control for plant guard as a WASI component under kiln (REQ-018, CI job
+# "guard (kiln)", advisory). kiln runs meld-fused components, so the run fuses
+# the wasm32-wasip2 build with meld first. Run from the repo root:
+#   CARGO_TARGET_DIR=<dir outside the repo> plant ci-controls.kiln.toml
+# (needs meld, kiln and the wasm32-wasip2 target)
+
+# The build without the std::process::exit call: under kiln too, exit 2 must
+# then reach the host as 1, and the parity check must say so.
+[[control]]
+id = "kiln-exit-collapse"
+check = "guard (kiln)"
+run = 'cargo build --locked -q --target wasm32-wasip2 --release && cargo build --locked -q && meld fuse --reproducible -o "$CARGO_TARGET_DIR/plant.fused.wasm" "$CARGO_TARGET_DIR/wasm32-wasip2/release/plant.wasm" >/dev/null && WASM_RUNTIME="kiln --wasi --component --dir ." scripts/guard-wasi.sh "$CARGO_TARGET_DIR/plant.fused.wasm" "$CARGO_TARGET_DIR/debug/plant"'
+plant = "wasi-controls/exit-collapse"
+stderr_or_stdout_matches = 'bad-config: wasm exit 1, native exit 2, want 2'
+timeout = 900
