@@ -127,8 +127,9 @@ jobs:
     env:
       WASMTIME_VERSION: 50.0.2
       # sha256 of wasmtime-v50.0.2-x86_64-linux.tar.xz, recorded on 2026-11-27
-      # after gh attestation verify accepted it (signer: wasmtime's
-      # publish-artifacts.yml at refs/tags/v50.0.2).
+      # after `gh attestation verify --repo bytecodealliance/wasmtime` accepted
+      # it (signer: wasmtime's publish-artifacts.yml at refs/tags/v50.0.2). The
+      # runners have no gh, so CI checks the pinned digest, as for lean.
       WASMTIME_SHA256: 5db0ca8e838ab95a51ba9acdf11f42888bcd0092dda45a86129ae540c4fa952c
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -138,19 +139,14 @@ jobs:
         with:
           toolchain: 1.100.0
           targets: wasm32-wasip2
-      # Accepted only when GitHub's attestation names wasmtime's own release
-      # workflow at that tag, and the archive matches the pinned sha256.
+      # A replaced release asset fails the job instead of being trusted.
       - name: install wasmtime
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
           d="$RUNNER_TEMP/wasmtime"
           a="wasmtime-v$WASMTIME_VERSION-x86_64-linux"
           mkdir -p "$d"
-          gh release download "v$WASMTIME_VERSION" -R bytecodealliance/wasmtime -p "$a.tar.xz" -D "$d"
-          gh attestation verify "$d/$a.tar.xz" --repo bytecodealliance/wasmtime \
-            --signer-workflow bytecodealliance/wasmtime/.github/workflows/publish-artifacts.yml \
-            --source-ref "refs/tags/v$WASMTIME_VERSION"
+          curl -fsSL --retry 3 -o "$d/$a.tar.xz" \
+            "https://github.com/bytecodealliance/wasmtime/releases/download/v$WASMTIME_VERSION/$a.tar.xz"
           echo "$WASMTIME_SHA256  $d/$a.tar.xz" | sha256sum -c -
           tar -xJf "$d/$a.tar.xz" -C "$d"
           echo "$d/$a" >> "$GITHUB_PATH"
