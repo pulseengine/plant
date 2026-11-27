@@ -7,6 +7,12 @@ set -eu
 wasm=${1:?usage: guard-wasi.sh PLANT_WASM PLANT_NATIVE}
 native=${2:?usage: guard-wasi.sh PLANT_WASM PLANT_NATIVE}
 runtime=${WASM_RUNTIME:-wasmtime run -S cli-exit-with-code=y --dir .::.}
+# Rust 1.99's std has no wasi:cli/exit exit-with-code import, and without it
+# every nonzero exit reaches the host as 1. Build with Rust 1.100 or later.
+if ! grep -aq exit-with-code "$wasm"; then
+  echo "FAIL  $wasm does not import exit-with-code (built with Rust < 1.100?)"
+  exit 1
+fi
 out=$(mktemp -d)
 trap 'rm -rf "$out"' EXIT
 fail=0
