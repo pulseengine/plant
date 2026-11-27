@@ -163,7 +163,7 @@ jobs:
       - name: guard under wasmtime matches native
         run: scripts/guard-wasi.sh target/wasm32-wasip2/release/plant.wasm target/debug/plant
       # Controls wasi-guard-unguarded and wasi-exit-collapse: a planted
-      # unguarded workflow, and the build without exit-with-code.
+      # unguarded workflow, and the build without the std::process::exit call.
       - name: plant on ci-controls.wasi.toml
         run: |
           export CARGO_TARGET_DIR="$RUNNER_TEMP/plant-wasi-target"

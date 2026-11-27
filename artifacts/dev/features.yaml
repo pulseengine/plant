@@ -317,7 +317,7 @@ artifacts:
     title: plant guard as a signed WASI component (O5)
     status: approved
     release: v0.6.0
-    description: "Owner approved 2026-11-27 (option dialogue). Done: plant guard builds for wasm32-wasip2 (the controls runner is left out of that build), exits 0/1/2 via wasi:cli/exit exit-with-code, and CI job guard (wasi) holds it equal to the native guard under wasmtime 50.0.2, with planted controls in ci-controls.wasi.toml. Open before implemented: kiln as an advisory second runner (meld fuse, then kiln 0.9), and signing the component in the release. See docs/plan/v0.4.0.md."
+    description: "Owner approved 2026-11-27 (option dialogue). Done: plant guard builds for wasm32-wasip2 (the controls runner is left out of that build), exits 0/1/2 via std::process::exit (Rust 1.100), and CI job guard (wasi) holds it equal to the native guard under wasmtime 50.0.2, with planted controls in ci-controls.wasi.toml. Open before implemented: kiln as an advisory second runner (meld fuse, then kiln 0.9), and signing the component in the release. See docs/plan/v0.4.0.md."
     fields:
       phase: phase-2
     links:

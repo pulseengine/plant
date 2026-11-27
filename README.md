@@ -115,7 +115,8 @@ CI job `guard (wasi)` runs it under wasmtime 50.0.2 and requires the native
 guard's stdout and exit code on plant's own workflows and
 `tests/fixtures/guard-wasi`. Two planted controls in `ci-controls.wasi.toml`
 show the job can fail: an unguarded workflow, and a build whose exit codes
-collapse to 0/1.
+collapse to 0/1. Build it with Rust 1.100 or later: with 1.99.1, exit 2 reaches
+the host as 1.
 
 ```sh
 cargo build --locked --target wasm32-wasip2 --release

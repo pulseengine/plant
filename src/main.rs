@@ -103,16 +103,15 @@ fn main() -> ExitCode {
     code
 }
 
-/// On wasm32-wasip2, both returning an ExitCode and std::process::exit map
-/// every nonzero code to 1 (measured, Rust 1.100, wasmtime 50.0.2), so a
-/// "could not run" (2) would read as "a control failed" (1). wasi:cli/exit's
-/// exit-with-code keeps it. wasmtime 50.0.2 ran it with and without
-/// `-S cli-exit-with-code=y`; CI passes the flag.
+/// On wasm32-wasip2, returning a nonzero ExitCode from main reaches the host
+/// as 1, so a "could not run" (2) would read as "a control failed" (1).
+/// std::process::exit keeps the code with Rust 1.100 (it does not with
+/// 1.99.1; measured with wasmtime 50.0.2, with and without
+/// `-S cli-exit-with-code=y`). CI builds with 1.100.0 and asserts 0/1/2.
 #[cfg(target_os = "wasi")]
 fn wasi_exit(code: ExitCode) {
     if code != ExitCode::SUCCESS {
-        let n = if code == ExitCode::from(1) { 1 } else { 2 };
-        wasip2::cli::exit::exit_with_code(n);
+        std::process::exit(if code == ExitCode::from(1) { 1 } else { 2 });
     }
 }
 

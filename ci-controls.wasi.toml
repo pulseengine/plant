@@ -13,7 +13,7 @@ plant = "wasi-controls/unguarded-workflow"
 stderr_or_stdout_matches = 'planted\.yml:5 \(planted\): runs-on is not a hosted image'
 timeout = 900
 
-# std's exit on WASI maps every nonzero code to 1. Without the exit-with-code
+# Returning a nonzero ExitCode on WASI reaches the host as 1. Without the
 # call, "could not run" (2) reads as "violations" (1), and the parity check
 # must say so.
 [[control]]
