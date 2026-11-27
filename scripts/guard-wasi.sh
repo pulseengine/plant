@@ -7,6 +7,11 @@ set -eu
 wasm=${1:?usage: guard-wasi.sh PLANT_WASM PLANT_NATIVE}
 native=${2:?usage: guard-wasi.sh PLANT_WASM PLANT_NATIVE}
 runtime=${WASM_RUNTIME:-wasmtime run -S cli-exit-with-code=y --dir .::.}
+# Each run is bounded, so a runtime that hangs fails the case (exit 124)
+# instead of holding the job until its own limit.
+limit=${WASM_TIMEOUT:-120}
+bound=
+if command -v timeout >/dev/null 2>&1; then bound="timeout $limit"; fi
 # Rust 1.99's std has no wasi:cli/exit exit-with-code import, and without it
 # every nonzero exit reaches the host as 1. Build with Rust 1.100 or later.
 if ! grep -aq exit-with-code "$wasm"; then
@@ -24,9 +29,9 @@ case_() {
   shift
   n=$((n + 1))
   set +e
-  $runtime "$wasm" "$@" >"$out/w" 2>"$out/we"
+  $bound $runtime "$wasm" "$@" </dev/null >"$out/w" 2>"$out/we"
   w=$?
-  "$native" "$@" >"$out/n" 2>"$out/ne"
+  "$native" "$@" </dev/null >"$out/n" 2>"$out/ne"
   c=$?
   set -e
   if [ "$w" != "$want" ] || [ "$c" != "$want" ]; then
